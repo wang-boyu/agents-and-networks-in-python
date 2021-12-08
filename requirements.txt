@@ -2,6 +2,20 @@
 -e .
 
 # external requirements
+mesa
+geopandas
+mesa-geo
+numpy
+pandas
+matplotlib
+seaborn
+jupyter
+notebook
+jupyter_contrib_nbextensions
+jupyter_nbextensions_configurator
+autopep8
+tqdm
+
 click
 Sphinx
 coverage
