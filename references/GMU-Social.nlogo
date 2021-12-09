@@ -1,9 +1,7 @@
 extensions[gis]
 
 breed [vertices vertex]   ;;the nodes
-
 breed [commuters commuter]  ;;people
-
 breed [nodes node]  ;;nodes representing people in networks
 
 globals [
@@ -76,9 +74,7 @@ to setup
 
   ;;loading GIS files here
   set gmu-buildings gis:load-dataset "data/Campus_data/Mason_bld.shp"
-
   set gmu-walkway gis:load-dataset "data/Campus_data/Mason_walkway_line.shp"
-
   set world-size gis:load-dataset "data/Campus_data/world.shp"
   gis:set-world-envelope gis:envelope-of world-size
   ;;gis:set-world-envelope gis:envelope-of gmu-walkway
@@ -100,12 +96,12 @@ to setup
   ;gis:set-drawing-color 25  gis:draw gmu-walkway 1.0
 
   ;identify centroids and assign IDs to centroids
-  foreach gis:feature-list-of gmu-buildings [ feature ->
-    let center-point gis:location-of gis:centroid-of feature
+  foreach gis:feature-list-of gmu-buildings [ building ->
+    let center-point gis:location-of gis:centroid-of building
     ask patch item 0 center-point item 1 center-point [
       set centroid? true
-      set id gis:property-value feature "Id"
-      set function gis:property-value feature "function"
+      set id gis:property-value building "Id"
+      set function gis:property-value building "function"
       if function = nobody [set function 0 ]  ;;deal with no data
     ]
   ]
@@ -113,11 +109,11 @@ to setup
   ;;ask patches with [ centroid? = true][sprout 1 [set size 2 set color red]] ;;use this line to verify
 
   ;;create turtles representing the nodes. create links to conect them.
-  foreach gis:feature-list-of gmu-walkway [ feature ->
-    foreach gis:vertex-lists-of feature [ ??1 ->  ; for the road feature, get the list of vertices
+  foreach gis:feature-list-of gmu-walkway [ road-feature ->
+    foreach gis:vertex-lists-of road-feature [ vertex ->  ; for the road feature, get the list of vertices
       let previous-node-pt nobody
-      foreach ??1 [ ???1 ->  ; for each vertex in road segment feature
-        let location gis:location-of ???1
+      foreach vertex [ node ->  ; for each vertex in road segment feature
+        let location gis:location-of node
         if not empty? location [
           ;ifelse any? vertices with [(xcor = item 0 location and ycor = item 1 location) ] ; if there is not a road-vertex here already
           create-vertices 1 [
@@ -149,10 +145,12 @@ to setup
   ask vertices [set myneighbors link-neighbors]
 
   ;;find nearest node to become entrance
-  ask patches with [centroid? = true][set entrance min-one-of vertices in-radius 50 [distance myself]
-  ask entrance [set entrance? true]
-  if show_nodes? [ask vertices [set hidden? false]]
-  if show_entrances? [ask entrance [set hidden? false set shape "star" set size 0.5]]]
+  ask patches with [centroid? = true] [
+    set entrance min-one-of vertices in-radius 50 [distance myself]
+    ask entrance [set entrance? true]
+    if show_nodes? [ask vertices [set hidden? false]]
+    if show_entrances? [ask entrance [set hidden? false set shape "star" set size 0.5]]
+  ]
 
   set got_to_destination 0
 
@@ -178,18 +176,37 @@ end
 to move
   ;;setting the clock
   set minute minute + 5
-  if minute = 60 [ifelse hour = 23 [set hour 0][set hour hour + 1] set minute 0]
+  if minute = 60 [
+    ifelse hour = 23 [set hour 0] [set hour hour + 1]
+    set minute 0
+  ]
 
   ;;checking happiness
-  ask commuters with [status = "work"] [ifelse (count work_friends > max_friends) [set happiness_work  happiness_work  - decrease * (count work_friends -  max_friends) ]
-                                       [ifelse (count work_friends < min_friends) [set happiness_work  happiness_work  - decrease * ( min_friends - count work_friends) ]
-                                       [set happiness_work  happiness_work  + increase ]]
-                                       if happiness_work  < 0 [relocate_work]]
+  ask commuters with [status = "work"] [
+    ifelse (count work_friends > max_friends)
+    [
+      set happiness_work happiness_work - decrease * (count work_friends - max_friends)
+    ]
+    [
+      ifelse (count work_friends < min_friends)
+        [set happiness_work happiness_work - decrease * ( min_friends - count work_friends)]
+        [set happiness_work happiness_work + increase]
+    ]
+    if happiness_work < 0 [relocate_work]
+  ]
 
-  ask commuters with [status = "home"] [ifelse (count home_friends > max_friends) [set happiness_home  happiness_home  - decrease * (count home_friends -  max_friends) ]
-                                       [ifelse (count home_friends < min_friends) [set happiness_home  happiness_home  - decrease * ( min_friends - count home_friends) ]
-                                       [set happiness_home  happiness_home  + increase ]]
-                                       if happiness_home  < 0 [relocate_home]]
+  ask commuters with [status = "home"] [
+    ifelse (count home_friends > max_friends)
+    [
+      set happiness_home happiness_home - decrease * (count home_friends - max_friends)
+    ]
+    [
+      ifelse (count home_friends < min_friends)
+        [set happiness_home happiness_home - decrease * ( min_friends - count home_friends)]
+        [set happiness_home happiness_home + increase]
+    ]
+    if happiness_home < 0 [relocate_home]
+  ]
 
   ;;start going to work
   ask commuters with [status = "home" and hour = start_time_h and minute = start_time_m] [
@@ -216,41 +233,51 @@ to move
   ]
 
   ;;move along the path selected
-  ask commuters with [status = "transport"][
+  ask commuters with [status = "transport"] [
     ;ifelse xcor != [xcor] of destination-entrance or ycor != [ycor] of destination-entrance [
-      ifelse distance destination-entrance > 0.5 [
-    let next_node item step-in-path mypath
-    let dist1 distance next_node
-    let remain speed
+    ifelse distance destination-entrance > 0.5
+    [
+      let next_node item step-in-path mypath
+      let dist1 distance next_node
+      let remain speed
       while [remain > dist1 and step-in-path < length mypath] [
-                      move-to next_node
-                      set step-in-path step-in-path + 1
-                      set remain remain - dist1
-        ifelse step-in-path < length mypath [set next_node item step-in-path mypath]
-        [set remain 0  move-to destination if destination = mywork [set status "work"] if destination = myhome [set status "home"] set got_to_destination got_to_destination + 1]  ;;it has reached destination
-                      set dist1 distance next_node
+        move-to next_node
+        set step-in-path step-in-path + 1
+        set remain remain - dist1
+        ifelse step-in-path < length mypath
+          [
+            set next_node item step-in-path mypath
+          ]
+          [
+            set remain 0
+            move-to destination
+            if destination = mywork [set status "work"]
+            if destination = myhome [set status "home"]
+            set got_to_destination got_to_destination + 1
+          ]  ;;it has reached destination
+        set dist1 distance next_node
       ]
-
       face next_node fd remain
-
     ]
-   [ ;move-to destination
+    [ ;move-to destination
       move-to destination
       if destination = mywork [set status "work"]
       if destination = myhome [set status "home"]
 
       set got_to_destination got_to_destination + 1
     ]  ;;arrive and start to work
- ]
+  ]
 
   ;;make friends at work. each tick there is a x% chance to make a new friend
-  ask commuters with [status = "work"][
+  ask commuters with [status = "work"] [
     ask work_friends [set testing 1]
     let non-friends count commuters-here with [testing = 0]  ;;one that is not a friend yet
     if non-friends > 0 and random-float 1 < chance_new_friend [
       let target_friend one-of commuters-here with [testing = 0]
 
-      ask target_friend [set work_friends (turtle-set work_friends myself)]
+      ask target_friend [
+        set work_friends (turtle-set work_friends myself)
+      ]
       set work_friends (turtle-set work_friends target_friend )]
 
     ask work_friends [set testing 0]
@@ -264,18 +291,22 @@ end
 ;;;;;;;;;;;;;;;;;helper functions;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to create-the-commuters
-  create-commuters number-of-commuters [ set commuter_id who
-                                         set color white set size 0.5 set shape "person" set destination nobody set last-stop nobody
-                                         ;;set mynode one-of vertices move-to mynode
-                                         set myhome one-of homes set mywork one-of works
-                                         move-to myhome  set status "home"
-                                         set start_time_h round(random-normal 6.5 1)
-                                         while [start_time_h < 6 or start_time_h > 9] [set start_time_h round(random-normal 6.5 1)]   ;;will start going to work between 6 and 9
-                                         set start_time_m (random 12) * 5
-                                         set end_time_h start_time_h + 8  ;will work for 8 hours
-                                         set end_time_m start_time_m
-                                         set happiness_work  100  set happiness_home 100
-                                         set work_friends commuters with [happiness_home < -99999]  ;;empty set
+  create-commuters number-of-commuters [
+    set commuter_id who
+    set color white set size 0.5 set shape "person" set destination nobody set last-stop nobody
+    ;;set mynode one-of vertices move-to mynode
+    set myhome one-of homes set mywork one-of works
+    move-to myhome  set status "home"
+    set start_time_h round(random-normal 6.5 1)
+    ;;will start going to work between 6 and 9
+    while [start_time_h < 6 or start_time_h > 9] [
+      set start_time_h round(random-normal 6.5 1)
+    ]
+    set start_time_m (random 12) * 5
+    set end_time_h start_time_h + 8  ;will work for 8 hours
+    set end_time_m start_time_m
+    set happiness_work  100  set happiness_home 100
+    set work_friends commuters with [happiness_home < -99999]  ;;empty set
   ]
 
   ask commuters [set home_friends commuters-here]
