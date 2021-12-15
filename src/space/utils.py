@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import numpy as np
+from mesa.space import FloatCoordinate, Coordinate
 
 
 def get_coord_matrix(x_min: float, x_max: float, y_min: float, y_max: float) -> np.ndarray:
@@ -23,3 +24,7 @@ def get_affine_transform(from_coord: np.ndarray, to_coord: np.ndarray) -> \
     # affine transform = [a, b, d, e, x_off, y_off]
     # For details, refer to https://geopandas.org/en/stable/docs/reference/api/geopandas.GeoSeries.affine_transform.html
     return A.T[0, 0], A.T[0, 1], A.T[1, 0], A.T[1, 1], A.T[0, 2], A.T[1, 2]
+
+
+def get_rounded_coordinate(float_coordinate: FloatCoordinate) -> Coordinate:
+    return round(float_coordinate[0]), round(float_coordinate[1])

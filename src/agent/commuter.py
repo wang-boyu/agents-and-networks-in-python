@@ -1,10 +1,12 @@
 from __future__ import annotations
 from typing import Set
 
+import numpy as np
 from mesa import Agent, Model
 from mesa.space import Coordinate
 
-from src.models.space import Vertex, BuildingCentroid
+from src.agent.vertex import Vertex
+from src.space.building_centroid import BuildingCentroid
 
 
 class Commuter(Agent):
@@ -12,7 +14,7 @@ class Commuter(Agent):
     model: Model
     pos: Coordinate
     my_node: Vertex  # where he begins his trip
-    destination: Vertex  # the destination he wants to arrive at
+    destination: BuildingCentroid  # the destination he wants to arrive at
     destination_entrance: Vertex  # the entrance of the destination on the road
     my_path: Set[Vertex]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
@@ -33,6 +35,17 @@ class Commuter(Agent):
 
     def __init__(self, unique_id: int, model: Model) -> None:
         super().__init__(unique_id, model)
+        self.destination = None
+        self.last_stop = None
+        self.start_time_h = np.random.normal(6.5, 1)
+        while self.start_time_h < 6 or self.start_time_h > 9:
+            self.start_time_h = np.random.normal(6.5, 1)
+        self.start_time_m = np.random.randint(0, 12) * 5
+        self.end_time_h = self.start_time_h + 8  # will work for 8 hours
+        self.end_time_m = self.start_time_m
+        self.happiness_work = 100
+        self.happiness_home = 100
+        self.work_friends = set()
 
     def step(self) -> None:
         pass

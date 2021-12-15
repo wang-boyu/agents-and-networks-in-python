@@ -1,5 +1,6 @@
-from typing import Set, List
+from typing import Tuple
 import uuid
+import random
 
 import geopandas as gpd
 import numpy as np
@@ -7,8 +8,11 @@ import pandas as pd
 from mesa import Model
 from mesa.time import RandomActivation
 
-from src.data.utils import get_coord_matrix, get_affine_transform
-from src.models.space import BuildingCentroid, Vertex
+from src.agent.vertex import Vertex
+from src.agent.commuter import Commuter
+from src.space.vertex_grid import VertexGrid
+from src.space.building_centroid import BuildingCentroid
+from src.space.utils import get_coord_matrix, get_affine_transform, get_rounded_coordinate
 
 
 class GmuSocial(Model):
@@ -20,16 +24,17 @@ class GmuSocial(Model):
     world_size: gpd.geodataframe.GeoDataFrame
     grid_width: int
     grid_height: int
-    homes: Set[BuildingCentroid]
-    works: Set[BuildingCentroid]
-    other_buildings: Set[BuildingCentroid]
-    vertices: List[List[Vertex]]
+    homes: Tuple[BuildingCentroid]
+    works: Tuple[BuildingCentroid]
+    other_buildings: Tuple[BuildingCentroid]
+    vertex_grid: VertexGrid
     got_to_destination: int  # count the total number of arrivals
+    num_commuters: int
     hour: int
     minute: int
 
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_size_file: str,
-                 grid_width: int = 80, grid_height: int = 40) -> None:
+                 grid_width: int = 80, grid_height: int = 40, num_commuters: int = 109) -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
         self.gmu_buildings = gpd.read_file(gmu_buildings_file).set_index("Id")
@@ -37,10 +42,8 @@ class GmuSocial(Model):
         self.world_size = gpd.read_file(world_size_file).set_index("Id")
         self.grid_width = grid_width
         self.grid_height = grid_height
-        self.homes = set()
-        self.works = set()
-        self.other_buildings = set()
-        self.vertices = []
+        self.num_commuters = num_commuters
+        self.vertex_grid = VertexGrid(width=grid_width, height=grid_height, torus=False)
 
         self.__setup()
 
@@ -51,6 +54,11 @@ class GmuSocial(Model):
         self.__affine_transform()
         self.__create_building_centroids()
         self.__create_vertices()
+        self.__set_building_entrance()
+        self.got_to_destination = 0
+        self.__create_commuters()
+        self.hour = 6
+        self.minute = 0
 
     def __affine_transform(self) -> None:
         world_envelope_df = pd.DataFrame([(x, y) for x, y in zip(*self.world_size.envelope[0].exterior.coords.xy)],
@@ -71,32 +79,48 @@ class GmuSocial(Model):
         self.gmu_walkway["geometry_transformed"] = self.gmu_walkway["geometry"].affine_transform(affine_transform)
 
     def __create_building_centroids(self) -> None:
+        homes, works, other_buildings = set(), set(), set()
         for index, row in self.gmu_buildings.iterrows():
+            transformed_coordinate = row["centroid_transformed"].x, row["centroid_transformed"].y
             centroid = BuildingCentroid(unique_id=index,
                                         function=int(row["function"]),
-                                        pos=(round(row["centroid_transformed"].x),
-                                             round(row["centroid_transformed"].y)))
+                                        pos=get_rounded_coordinate(transformed_coordinate))
             if centroid.function == 0:
-                self.other_buildings.add(centroid)
+                other_buildings.add(centroid)
             elif centroid.function == 1:
-                self.works.add(centroid)
+                works.add(centroid)
             elif centroid.function == 2:
-                self.homes.add(centroid)
+                homes.add(centroid)
+        self.other_buildings = tuple(other_buildings)
+        self.works = tuple(works)
+        self.homes = tuple(homes)
 
     def __create_vertices(self) -> None:
-        list_of_vertex_list = []
-        vertex_position_set = set()
         for _, row in self.gmu_walkway.iterrows():
-            vertices = []
             for point in row["geometry_transformed"].coords:
-                rounded_point = (round(point[0]), round(point[1]))
-                if rounded_point not in vertex_position_set:
-                    vertex_position_set.add(rounded_point)
-                    vertex = Vertex(unique_id=uuid.uuid4().int, pos=point)
-                    vertices.append(vertex)
-            list_of_vertex_list.append(vertices)
-        # TODO: delete not connected. Probably need to use grid space to find neighbours.
-        self.vertices = list_of_vertex_list
+                rounded_point = get_rounded_coordinate(point)
+                if self.vertex_grid.is_cell_empty(rounded_point):
+                    vertex = Vertex(unique_id=uuid.uuid4().int, model=self, float_pos=point)
+                    self.vertex_grid.place_agent(vertex, rounded_point)
+        self.vertex_grid.delete_not_connected()
+
+    def __set_building_entrance(self) -> None:
+        for building in (*self.homes, *self.works, *self.other_buildings):
+            nearest_vertex = self.vertex_grid.get_nearest_vertex(building.pos)
+            nearest_vertex.is_entrance = True
+            self.vertex_grid.update_agent(nearest_vertex, nearest_vertex.pos)
+            building.entrance = nearest_vertex
+
+    def __create_commuters(self) -> None:
+        for _ in range(self.num_commuters):
+            commuter = Commuter(unique_id=uuid.uuid4().int, model=self)
+            commuter.my_home = random.choice(self.homes)
+            commuter.my_work = random.choice(self.works)
+
+            # move-to myhome
+            # set status "home"
+
+        # ask commuters [set home_friends commuters-here]
 
     def step(self) -> None:
         pass

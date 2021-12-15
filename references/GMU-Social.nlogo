@@ -124,7 +124,7 @@ to setup
             set shape "circle"
             set color brown
             set hidden? true
-            
+
             ; create link to previous node
             ifelse previous-node-pt = nobody
               [] ; first vertex in feature
@@ -169,8 +169,11 @@ to setup
   set minute 0
 
   ;;set up networks
-  create-nodes number-of-commuters [set color yellow set node_id who - count commuters
-  move-to one-of patches with [pxcor > 45 and count turtles-here < 1 ]]
+  create-nodes number-of-commuters [
+    set color yellow
+    set node_id who - count commuters
+    move-to one-of patches with [pxcor > 45 and count turtles-here < 1]
+  ]
 end
 
 to move
@@ -293,9 +296,14 @@ end
 to create-the-commuters
   create-commuters number-of-commuters [
     set commuter_id who
-    set color white set size 0.5 set shape "person" set destination nobody set last-stop nobody
+    set color white
+    set size 0.5
+    set shape "person"
+    set destination nobody
+    set last-stop nobody
     ;;set mynode one-of vertices move-to mynode
-    set myhome one-of homes set mywork one-of works
+    set myhome one-of homes
+    set mywork one-of works
     move-to myhome  set status "home"
     set start_time_h round(random-normal 6.5 1)
     ;;will start going to work between 6 and 9
@@ -305,7 +313,8 @@ to create-the-commuters
     set start_time_m (random 12) * 5
     set end_time_h start_time_h + 8  ;will work for 8 hours
     set end_time_m start_time_m
-    set happiness_work  100  set happiness_home 100
+    set happiness_work 100
+    set happiness_home 100
     set work_friends commuters with [happiness_home < -99999]  ;;empty set
   ]
 
@@ -361,7 +370,8 @@ to path-select
       ask myneighbors [
         let dist0 distance myself + [dist] of myself    ;;renew the shorstest distance to this point if it is smaller
         if dist > dist0 [
-          set dist dist0 set done 0 ;;done=0 if dist renewed, so that it will renew the dist of its neighbors
+          set dist dist0
+          set done 0 ;;done=0 if dist renewed, so that it will renew the dist of its neighbors
           set lastnode myself
         ]  ;;record the last node to reach here in the shortest path
         ;set color red  ;;all roads searched will get red
