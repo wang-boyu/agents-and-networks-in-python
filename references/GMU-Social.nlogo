@@ -79,18 +79,18 @@ to setup
   gis:set-world-envelope gis:envelope-of world-size
   ;;gis:set-world-envelope gis:envelope-of gmu-walkway
 
-  gis:set-drawing-color 5  gis:fill gmu-buildings 1.0
+  gis:set-drawing-color 5 gis:fill gmu-buildings 1.0
 
   if show_lakes? [
     set gmu-lakes gis:load-dataset "../data/raw/campus/hydrop.shp"
     set gmu-rivers gis:load-dataset "../data/raw/campus/hydrol.shp"
-    gis:set-drawing-color 87  gis:fill gmu-lakes 1.0
-    gis:set-drawing-color 87  gis:draw gmu-rivers 0.5
+    gis:set-drawing-color 87 gis:fill gmu-lakes 1.0
+    gis:set-drawing-color 87 gis:draw gmu-rivers 0.5
   ]
 
   if show_driveway? [
     set gmu-drive gis:load-dataset "../data/raw/campus/Mason_Rds.shp"
-    gis:set-drawing-color 36  gis:fill gmu-drive 1.0
+    gis:set-drawing-color 36 gis:fill gmu-drive 1.0
   ]
 
   ;gis:set-drawing-color 25  gis:draw gmu-walkway 1.0
@@ -102,7 +102,7 @@ to setup
       set centroid? true
       set id gis:property-value building "Id"
       set function gis:property-value building "function"
-      if function = nobody [set function 0 ]  ;;deal with no data
+      if function = nobody [set function 0]  ;;deal with no data
     ]
   ]
 
@@ -180,7 +180,9 @@ to move
   ;;setting the clock
   set minute minute + 5
   if minute = 60 [
-    ifelse hour = 23 [set hour 0] [set hour hour + 1]
+    ifelse hour = 23
+      [set hour 0]
+      [set hour hour + 1]
     set minute 0
   ]
 
@@ -213,7 +215,8 @@ to move
 
   ;;start going to work
   ask commuters with [status = "home" and hour = start_time_h and minute = start_time_m] [
-    set mynode min-one-of vertices [distance myself] move-to mynode ;;move to nearest road
+    set mynode min-one-of vertices [distance myself]
+    move-to mynode ;;move to nearest road
     set destination mywork
     set destination-entrance [entrance] of destination
     ;while [destination-entrance = mynode] [set destination one-of patches with [centroid? = true] set destination-entrance [entrance] of destination]
@@ -225,7 +228,8 @@ to move
 
   ;;start going home
   ask commuters with [status = "work" and hour = end_time_h and minute = end_time_m] [
-    set mynode min-one-of vertices [distance myself] move-to mynode ;;move to nearest road
+    set mynode min-one-of vertices [distance myself]
+    move-to mynode ;;move to nearest road
     set destination myhome
     set destination-entrance [entrance] of destination
     ;while [destination-entrance = mynode] [set destination one-of patches with [centroid? = true] set destination-entrance [entrance] of destination]
@@ -304,7 +308,8 @@ to create-the-commuters
     ;;set mynode one-of vertices move-to mynode
     set myhome one-of homes
     set mywork one-of works
-    move-to myhome  set status "home"
+    move-to myhome
+    set status "home"
     set start_time_h round(random-normal 6.5 1)
     ;;will start going to work between 6 and 9
     while [start_time_h < 6 or start_time_h > 9] [

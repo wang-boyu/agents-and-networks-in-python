@@ -25,9 +25,8 @@ class Commuter(Agent):
     start_time_m: int
     end_time_h: int  # time to leave work, hour and minute
     end_time_m: int
-    home_friends: Set[Commuter]  # set of friends at home
-    work_friends: Set[Commuter]  # set of friends at work
-    num_friends: int  # number of friends
+    num_home_friends: int  # number of friends at home
+    num_work_friends: int  # number of friends at work
     status: str  # work, home, or transport
     testing: bool  # a temp variable used in identifying friends
     happiness_home: int
@@ -45,7 +44,12 @@ class Commuter(Agent):
         self.end_time_m = self.start_time_m
         self.happiness_work = 100
         self.happiness_home = 100
-        self.work_friends = set()
+        self.num_home_friends = 0
+        self.num_work_friends = 0
+
+    def __repr__(self) -> str:
+        return f"Commuter(unique_id={self.unique_id}, pos={self.pos}, status={self.status}, " \
+               f"num_home_friends={self.num_home_friends}, num_work_friends={self.num_work_friends})"
 
     def step(self) -> None:
         pass

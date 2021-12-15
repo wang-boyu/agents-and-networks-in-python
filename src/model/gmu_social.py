@@ -1,12 +1,14 @@
 from typing import Tuple
 import uuid
 import random
+from collections import defaultdict
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from mesa import Model
 from mesa.time import RandomActivation
+from mesa.space import MultiGrid
 
 from src.agent.vertex import Vertex
 from src.agent.commuter import Commuter
@@ -28,6 +30,7 @@ class GmuSocial(Model):
     works: Tuple[BuildingCentroid]
     other_buildings: Tuple[BuildingCentroid]
     vertex_grid: VertexGrid
+    commuter_grid: MultiGrid
     got_to_destination: int  # count the total number of arrivals
     num_commuters: int
     hour: int
@@ -44,6 +47,7 @@ class GmuSocial(Model):
         self.grid_height = grid_height
         self.num_commuters = num_commuters
         self.vertex_grid = VertexGrid(width=grid_width, height=grid_height, torus=False)
+        self.commuter_grid = MultiGrid(width=grid_width, height=grid_height, torus=False)
 
         self.__setup()
 
@@ -112,15 +116,22 @@ class GmuSocial(Model):
             building.entrance = nearest_vertex
 
     def __create_commuters(self) -> None:
+        commuter_counter_home, commuter_counter_work = defaultdict(int), defaultdict(int)
+        commuters = set()
         for _ in range(self.num_commuters):
             commuter = Commuter(unique_id=uuid.uuid4().int, model=self)
             commuter.my_home = random.choice(self.homes)
             commuter.my_work = random.choice(self.works)
+            commuter_counter_home[commuter.my_home.pos] += 1
+            commuter_counter_work[commuter.my_work.pos] += 1
+            commuters.add(commuter)
 
-            # move-to myhome
-            # set status "home"
-
-        # ask commuters [set home_friends commuters-here]
+        for commuter in commuters:
+            commuter.num_home_friends = commuter_counter_home[commuter.my_home.pos]
+            commuter.num_work_friends = commuter_counter_work[commuter.my_work.pos]
+            commuter.status = "home"
+            self.commuter_grid.place_agent(commuter, commuter.my_home.pos)
+            self.schedule.add(commuter)
 
     def step(self) -> None:
         pass
