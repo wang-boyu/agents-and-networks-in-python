@@ -1,18 +1,15 @@
-from typing import Tuple
 import uuid
-import random
-from collections import defaultdict
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from mesa import Model
 from mesa.time import RandomActivation
-from mesa.space import MultiGrid
 
 from src.agent.vertex import Vertex
 from src.agent.commuter import Commuter
 from src.space.vertex_grid import VertexGrid
+from src.space.commuter_grid import CommuterGrid
 from src.space.building_centroid import BuildingCentroid
 from src.space.utils import get_coord_matrix, get_affine_transform, get_rounded_coordinate
 
@@ -26,18 +23,17 @@ class GmuSocial(Model):
     world_size: gpd.geodataframe.GeoDataFrame
     grid_width: int
     grid_height: int
-    homes: Tuple[BuildingCentroid]
-    works: Tuple[BuildingCentroid]
-    other_buildings: Tuple[BuildingCentroid]
     vertex_grid: VertexGrid
-    commuter_grid: MultiGrid
+    commuter_grid: CommuterGrid
     got_to_destination: int  # count the total number of arrivals
     num_commuters: int
     hour: int
     minute: int
 
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_size_file: str,
-                 grid_width: int = 80, grid_height: int = 40, num_commuters: int = 109) -> None:
+                 grid_width: int = 80, grid_height: int = 40,
+                 num_commuters: int = 109, commuter_min_friends: int = 5, commuter_max_friends: int = 10,
+                 commuter_happiness_increase: float = 0.5, commuter_happiness_decrease: float = 0.5) -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
         self.gmu_buildings = gpd.read_file(gmu_buildings_file).set_index("Id")
@@ -46,8 +42,14 @@ class GmuSocial(Model):
         self.grid_width = grid_width
         self.grid_height = grid_height
         self.num_commuters = num_commuters
+
+        Commuter.MIN_FRIENDS = commuter_min_friends
+        Commuter.MAX_FRIENDS = commuter_max_friends
+        Commuter.HAPPINESS_INCREASE = commuter_happiness_increase
+        Commuter.HAPPINESS_DECREASE = commuter_happiness_decrease
+
         self.vertex_grid = VertexGrid(width=grid_width, height=grid_height, torus=False)
-        self.commuter_grid = MultiGrid(width=grid_width, height=grid_height, torus=False)
+        self.commuter_grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
 
         self.__setup()
 
@@ -64,6 +66,7 @@ class GmuSocial(Model):
         self.hour = 6
         self.minute = 0
 
+    # TODO: move to CommuterGrid and VertexGrid classes
     def __affine_transform(self) -> None:
         world_envelope_df = pd.DataFrame([(x, y) for x, y in zip(*self.world_size.envelope[0].exterior.coords.xy)],
                                          columns=["x", "y"])
@@ -82,6 +85,7 @@ class GmuSocial(Model):
         self.gmu_buildings["centroid_transformed"] = self.gmu_buildings["centroid"].affine_transform(affine_transform)
         self.gmu_walkway["geometry_transformed"] = self.gmu_walkway["geometry"].affine_transform(affine_transform)
 
+    # TODO: move to CommuterGrid class
     def __create_building_centroids(self) -> None:
         homes, works, other_buildings = set(), set(), set()
         for index, row in self.gmu_buildings.iterrows():
@@ -95,10 +99,11 @@ class GmuSocial(Model):
                 works.add(centroid)
             elif centroid.function == 2:
                 homes.add(centroid)
-        self.other_buildings = tuple(other_buildings)
-        self.works = tuple(works)
-        self.homes = tuple(homes)
+        self.commuter_grid.other_buildings = tuple(other_buildings)
+        self.commuter_grid.works = tuple(works)
+        self.commuter_grid.homes = tuple(homes)
 
+    # TODO: move to VertexGrid class
     def __create_vertices(self) -> None:
         for _, row in self.gmu_walkway.iterrows():
             for point in row["geometry_transformed"].coords:
@@ -109,29 +114,31 @@ class GmuSocial(Model):
         self.vertex_grid.delete_not_connected()
 
     def __set_building_entrance(self) -> None:
-        for building in (*self.homes, *self.works, *self.other_buildings):
+        for building in (*self.commuter_grid.homes, *self.commuter_grid.works, *self.commuter_grid.other_buildings):
             nearest_vertex = self.vertex_grid.get_nearest_vertex(building.pos)
             nearest_vertex.is_entrance = True
             self.vertex_grid.update_agent(nearest_vertex, nearest_vertex.pos)
             building.entrance = nearest_vertex
 
     def __create_commuters(self) -> None:
-        commuter_counter_home, commuter_counter_work = defaultdict(int), defaultdict(int)
-        commuters = set()
         for _ in range(self.num_commuters):
             commuter = Commuter(unique_id=uuid.uuid4().int, model=self)
-            commuter.my_home = random.choice(self.homes)
-            commuter.my_work = random.choice(self.works)
-            commuter_counter_home[commuter.my_home.pos] += 1
-            commuter_counter_work[commuter.my_work.pos] += 1
-            commuters.add(commuter)
-
-        for commuter in commuters:
-            commuter.num_home_friends = commuter_counter_home[commuter.my_home.pos]
-            commuter.num_work_friends = commuter_counter_work[commuter.my_work.pos]
+            commuter.my_home = self.commuter_grid.get_random_home()
+            commuter.my_work = self.commuter_grid.get_random_work()
             commuter.status = "home"
             self.commuter_grid.place_agent(commuter, commuter.my_home.pos)
+            self.commuter_grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home.pos)
             self.schedule.add(commuter)
 
     def step(self) -> None:
-        pass
+        self.__update_clock()
+        self.schedule.step()
+
+    def __update_clock(self) -> None:
+        self.minute += 5
+        if self.minute == 60:
+            if self.hour == 23:
+                self.hour = 0
+            else:
+                self.hour += 1
+            self.minute = 0

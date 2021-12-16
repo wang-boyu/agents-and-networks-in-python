@@ -364,9 +364,15 @@ end
 
 to path-select
   ;;use the A-star algorithm to find the shortest path (shortest in terms of distance)
-  set mypath [] set step-in-path 0
+  set mypath []
+  set step-in-path 0
 
-  ask vertices [set dist 99999 set done 0 set lastnode nobody set color brown]
+  ask vertices [
+    set dist 99999
+    set done 0
+    set lastnode nobody
+    set color brown
+  ]
 
   ask mynode [set dist 0] ;;distance to original node is 0
 

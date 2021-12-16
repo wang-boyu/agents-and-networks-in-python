@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from mesa.agent import Agent
 from mesa.space import SingleGrid, Coordinate
 from sklearn.neighbors import KDTree
