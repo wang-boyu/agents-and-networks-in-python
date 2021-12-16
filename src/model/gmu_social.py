@@ -33,7 +33,8 @@ class GmuSocial(Model):
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_size_file: str,
                  grid_width: int = 80, grid_height: int = 40,
                  num_commuters: int = 109, commuter_min_friends: int = 5, commuter_max_friends: int = 10,
-                 commuter_happiness_increase: float = 0.5, commuter_happiness_decrease: float = 0.5) -> None:
+                 commuter_happiness_increase: float = 0.5, commuter_happiness_decrease: float = 0.5,
+                 speed: float = 2.0) -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
         self.gmu_buildings = gpd.read_file(gmu_buildings_file).set_index("Id")
@@ -47,6 +48,7 @@ class GmuSocial(Model):
         Commuter.MAX_FRIENDS = commuter_max_friends
         Commuter.HAPPINESS_INCREASE = commuter_happiness_increase
         Commuter.HAPPINESS_DECREASE = commuter_happiness_decrease
+        Commuter.SPEED = speed
 
         self.vertex_grid = VertexGrid(width=grid_width, height=grid_height, torus=False)
         self.commuter_grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
@@ -87,18 +89,18 @@ class GmuSocial(Model):
 
     # TODO: move to CommuterGrid class
     def __create_building_centroids(self) -> None:
-        homes, works, other_buildings = set(), set(), set()
+        homes, works, other_buildings = [], [], []
         for index, row in self.gmu_buildings.iterrows():
             transformed_coordinate = row["centroid_transformed"].x, row["centroid_transformed"].y
             centroid = BuildingCentroid(unique_id=index,
                                         function=int(row["function"]),
                                         pos=get_rounded_coordinate(transformed_coordinate))
             if centroid.function == 0:
-                other_buildings.add(centroid)
+                other_buildings.append(centroid)
             elif centroid.function == 1:
-                works.add(centroid)
+                works.append(centroid)
             elif centroid.function == 2:
-                homes.add(centroid)
+                homes.append(centroid)
         self.commuter_grid.other_buildings = tuple(other_buildings)
         self.commuter_grid.works = tuple(works)
         self.commuter_grid.homes = tuple(homes)

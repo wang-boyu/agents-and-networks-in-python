@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Set
+from typing import List
 
 import numpy as np
 from mesa import Agent, Model
@@ -16,7 +16,7 @@ class Commuter(Agent):
     my_node: Vertex  # where he begins his trip
     destination: BuildingCentroid  # the destination he wants to arrive at
     destination_entrance: Vertex  # the entrance of the destination on the road
-    my_path: Set[Vertex]  # a set containing nodes to visit in the shortest path
+    my_path: List[Vertex]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
     last_stop: Vertex  # last destination
     my_home: BuildingCentroid  # home location
@@ -34,14 +34,15 @@ class Commuter(Agent):
     MAX_FRIENDS: int
     HAPPINESS_INCREASE: float
     HAPPINESS_DECREASE: float
+    SPEED: float
 
     def __init__(self, unique_id: int, model: Model) -> None:
         super().__init__(unique_id, model)
         self.destination = None
         self.last_stop = None
-        self.start_time_h = np.random.normal(6.5, 1)
+        self.start_time_h = round(np.random.normal(6.5, 1))
         while self.start_time_h < 6 or self.start_time_h > 9:
-            self.start_time_h = np.random.normal(6.5, 1)
+            self.start_time_h = round(np.random.normal(6.5, 1))
         self.start_time_m = np.random.randint(0, 12) * 5
         self.end_time_h = self.start_time_h + 8  # will work for 8 hours
         self.end_time_m = self.start_time_m
@@ -104,7 +105,33 @@ class Commuter(Agent):
             self.status = "transport"
 
     def __move(self) -> None:
-        pass
+        if self.status == "transport":
+            if self.model.vertex_grid.get_distance(self.pos, self.destination_entrance.float_pos) > 0.5:
+                next_node = self.my_path[self.step_in_path]
+                dist_1 = self.model.vertex_grid.get_distance(self.pos, next_node.float_pos)
+                remain = self.SPEED
+                while remain > dist_1 and self.step_in_path < len(self.my_path):
+                    self.model.commuter_grid.place_agent(self, next_node.pos)
+                    self.step_in_path += 1
+                    remain -= dist_1
+                    if self.step_in_path < len(self.my_path):
+                        next_node = self.my_path[self.step_in_path]
+                    else:
+                        remain = 0.0
+                        self.model.commuter_grid.place_agent(self, self.destination_entrance.pos)
+                        if self.destination == self.my_work:
+                            self.status = "work"
+                        elif self.destination == self.my_home:
+                            self.statu = "home"
+                        self.model.got_to_destination += 1
+                    dist_1 = self.model.vertex_grid.get_distance(self.pos, next_node.float_pos)
+            else:
+                self.model.commuter_grid.place_agent(self, self.destination_entrance.pos)
+                if self.destination == self.my_work:
+                    self.status = "work"
+                elif self.destination == self.my_home:
+                    self.statu = "home"
+                self.model.got_to_destination += 1
 
     def advance(self) -> None:
         raise NotImplementedError
@@ -115,7 +142,7 @@ class Commuter(Agent):
             continue
         self.my_home = new_home
         self.happiness_home = 100.0
-        self.commuter_grid.update_home_counter(old_home_pos=old_home.pos, new_home_pos=self.my_home.pos)
+        self.model.commuter_grid.update_home_counter(old_home_pos=old_home.pos, new_home_pos=self.my_home.pos)
 
     def __relocate_work(self) -> None:
         old_work = self.my_work
@@ -126,7 +153,35 @@ class Commuter(Agent):
         self.happiness_work = 100.0
 
     def __path_select(self) -> None:
-        pass
+        self.my_path = []
+        self.step_in_path = 0
+        undone_vertices_id = set()
+        for vertex in self.model.vertex_grid:
+            if vertex is not None:
+                vertex.dist = 99999
+                vertex.done = 0
+                vertex.last_node = None
+                undone_vertices_id.add(vertex.unique_id)
+        self.my_node.dist = 0
+
+        while undone_vertices_id:
+            for vertex in self.model.vertex_grid:
+                if vertex is not None and vertex.dist < 99999 and vertex.done == 0:
+                    for neighbor in self.model.vertex_grid.get_neighbors(vertex.pos, moore=True, radius=3):
+                        distance = self.model.vertex_grid.get_distance(vertex.float_pos, neighbor.float_pos)
+                        dist_0 = distance + vertex.dist
+                        if neighbor.dist > dist_0:
+                            neighbor.dist = dist_0
+                            neighbor.done = 0
+                            neighbor.last_node = vertex
+                            undone_vertices_id.add(neighbor.unique_id)
+                    vertex.done = 1
+                    undone_vertices_id.remove(vertex.unique_id)
+        x = self.destination_entrance
+        while x != self.my_node:
+            self.my_path.append(x)
+            x = x.last_node
+        self.my_path.reverse()
 
     def __make_friends_at_work(self) -> None:
         pass

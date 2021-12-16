@@ -1,5 +1,6 @@
+import numpy as np
 from mesa.agent import Agent
-from mesa.space import SingleGrid, Coordinate
+from mesa.space import SingleGrid, Coordinate, FloatCoordinate
 from sklearn.neighbors import KDTree
 
 from src.space.utils import get_rounded_coordinate
@@ -31,3 +32,13 @@ class VertexGrid(SingleGrid):
     def __build_kd_tree(self) -> None:
         vertices_pos = [agent.float_pos for row in self.grid for agent in row if agent is not None]
         self.tree = KDTree(vertices_pos)
+
+    def get_distance(self, pos_1: FloatCoordinate, pos_2: FloatCoordinate) -> float:
+        x1, y1 = pos_1
+        x2, y2 = pos_2
+        dx = np.abs(x1 - x2)
+        dy = np.abs(y1 - y2)
+        if self.torus:
+            dx = min(dx, self.width - dx)
+            dy = min(dy, self.height - dy)
+        return np.sqrt(dx * dx + dy * dy)

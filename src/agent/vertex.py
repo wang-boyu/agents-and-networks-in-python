@@ -29,7 +29,13 @@ class Vertex(Agent):
         self.last_node = None
 
     def __repr__(self) -> str:
-        return f"Vertex(unique_id={self.unique_id}, float_pos={self.float_pos}, is_entrance={self.is_entrance})"
+        return f"Vertex(unique_id={self.unique_id}, float_pos={self.float_pos}, is_entrance={self.is_entrance}, " \
+               f"dist={self.dist}, done={self.done})"
+
+    def __eq__(self, other):
+        if isinstance(other, Vertex):
+            return self.unique_id == other.unique_id
+        return False
 
     def step(self) -> None:
         pass
