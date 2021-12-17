@@ -1,5 +1,6 @@
 import uuid
 from collections import Counter
+from typing import Dict
 
 import geopandas as gpd
 import numpy as np
@@ -16,14 +17,19 @@ from src.space.building_centroid import BuildingCentroid
 from src.space.utils import get_coord_matrix, get_affine_transform, get_rounded_coordinate
 
 
-def get_commuter_status_count(model):
+def get_commuter_status_count(model) -> Counter:
     commuter_status = [commuter.status if commuter.status != "transport" else "traveling"
                        for commuter in model.schedule.agents]
     return Counter(commuter_status)
 
 
-def get_time(model):
+def get_time(model) -> pd.Timedelta:
     return pd.Timedelta(days=model.day, hours=model.hour, minutes=model.minute)
+
+
+def get_num_friendships(model) -> Dict[str, int]:
+    return {"home": sum([commuter.num_home_friends for commuter in model.schedule.agents]),
+            "work": sum([commuter.num_work_friends for commuter in model.schedule.agents])}
 
 
 class GmuSocial(Model):
@@ -48,7 +54,7 @@ class GmuSocial(Model):
                  grid_width: int = 80, grid_height: int = 40,
                  num_commuters: int = 109, commuter_min_friends: int = 5, commuter_max_friends: int = 10,
                  commuter_happiness_increase: float = 0.5, commuter_happiness_decrease: float = 0.5,
-                 speed: float = 5.0) -> None:
+                 speed: float = 5.0, chance_new_friend: float = 5.0) -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
         self.gmu_buildings = gpd.read_file(gmu_buildings_file).set_index("Id")
@@ -63,13 +69,15 @@ class GmuSocial(Model):
         Commuter.HAPPINESS_INCREASE = commuter_happiness_increase
         Commuter.HAPPINESS_DECREASE = commuter_happiness_decrease
         Commuter.SPEED = speed
+        Commuter.CHANCE_NEW_FRIEND = chance_new_friend
 
         self.vertex_grid = VertexGrid(width=grid_width, height=grid_height, torus=False)
         self.commuter_grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
 
         self.__setup()
         self.datacollector = DataCollector(model_reporters={"status": get_commuter_status_count,
-                                                            "time": get_time})
+                                                            "time": get_time,
+                                                            "num_friendships": get_num_friendships})
 
     def __setup(self) -> None:
         self.gmu_buildings["centroid"] = self.gmu_buildings["geometry"].centroid

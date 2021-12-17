@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import random
 from typing import List, Set
 
 import numpy as np
@@ -35,6 +37,7 @@ class Commuter(Agent):
     HAPPINESS_INCREASE: float
     HAPPINESS_DECREASE: float
     SPEED: float
+    CHANCE_NEW_FRIEND: float  # percent chance to make a new friend every 5 min
 
     def __init__(self, unique_id: int, model: Model) -> None:
         super().__init__(unique_id, model)
@@ -49,6 +52,7 @@ class Commuter(Agent):
         self.happiness_work = 100.0
         self.happiness_home = 100.0
         self.work_friends = set()
+        self.testing = False
 
     def __repr__(self) -> str:
         return f"Commuter(unique_id={self.unique_id}, pos={self.pos}, status={self.status}, " \
@@ -57,6 +61,10 @@ class Commuter(Agent):
     @property
     def num_home_friends(self) -> int:
         return self.model.commuter_grid.home_counter[self.my_home.pos]
+
+    @property
+    def num_work_friends(self) -> int:
+        return len(self.work_friends)
 
     def step(self) -> None:
         self.__check_happiness()
@@ -188,5 +196,10 @@ class Commuter(Agent):
         if self.status == "work":
             for work_friend in self.work_friends:
                 work_friend.testing = True
-            # TODO
-            # for commuter in self.model.commuter_grid.get_neighbors
+            commuters_to_check = [commuter for commuter in self.model.commuter_grid[self.pos] if not commuter.testing]
+            if commuters_to_check and np.random.uniform(0.0, 100.0) < self.CHANCE_NEW_FRIEND:
+                target_friend = random.choice(commuters_to_check)
+                target_friend.work_friends.add(self)
+                self.work_friends.add(target_friend)
+            for work_friend in self.work_friends:
+                work_friend.testing = False

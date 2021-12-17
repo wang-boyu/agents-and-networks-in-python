@@ -281,12 +281,11 @@ to move
     let non-friends count commuters-here with [testing = 0]  ;;one that is not a friend yet
     if non-friends > 0 and random-float 1 < chance_new_friend [
       let target_friend one-of commuters-here with [testing = 0]
-
       ask target_friend [
         set work_friends (turtle-set work_friends myself)
       ]
-      set work_friends (turtle-set work_friends target_friend )]
-
+      set work_friends (turtle-set work_friends target_friend)
+    ]
     ask work_friends [set testing 0]
   ]
 
