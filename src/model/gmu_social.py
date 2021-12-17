@@ -1,5 +1,4 @@
 import uuid
-from typing import Dict
 from functools import partial
 
 import geopandas as gpd
@@ -46,7 +45,7 @@ class GmuSocial(Model):
     grid_width: int
     grid_height: int
     vertex_grid: VertexGrid
-    commuter_grid: CommuterGrid
+    grid: CommuterGrid
     got_to_destination: int  # count the total number of arrivals
     num_commuters: int
     day: int
@@ -76,7 +75,7 @@ class GmuSocial(Model):
         Commuter.CHANCE_NEW_FRIEND = chance_new_friend
 
         self.vertex_grid = VertexGrid(width=grid_width, height=grid_height, torus=False)
-        self.commuter_grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
+        self.grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
 
         self.__setup()
         self.datacollector = DataCollector(model_reporters={
@@ -99,8 +98,8 @@ class GmuSocial(Model):
         self.got_to_destination = 0
         self.__create_commuters()
         self.day = 0
-        self.hour = 6
-        self.minute = 0
+        self.hour = 5
+        self.minute = 55
 
     # TODO: move to CommuterGrid and VertexGrid classes
     def __affine_transform(self) -> None:
@@ -135,9 +134,9 @@ class GmuSocial(Model):
                 works.append(centroid)
             elif centroid.function == 2:
                 homes.append(centroid)
-        self.commuter_grid.other_buildings = tuple(other_buildings)
-        self.commuter_grid.works = tuple(works)
-        self.commuter_grid.homes = tuple(homes)
+        self.grid.other_buildings = tuple(other_buildings)
+        self.grid.works = tuple(works)
+        self.grid.homes = tuple(homes)
 
     # TODO: move to VertexGrid class
     def __create_vertices(self) -> None:
@@ -150,7 +149,7 @@ class GmuSocial(Model):
         self.vertex_grid.delete_not_connected()
 
     def __set_building_entrance(self) -> None:
-        for building in (*self.commuter_grid.homes, *self.commuter_grid.works, *self.commuter_grid.other_buildings):
+        for building in (*self.grid.homes, *self.grid.works, *self.grid.other_buildings):
             nearest_vertex = self.vertex_grid.get_nearest_vertex(building.pos)
             nearest_vertex.is_entrance = True
             self.vertex_grid.update_agent(nearest_vertex, nearest_vertex.pos)
@@ -159,11 +158,11 @@ class GmuSocial(Model):
     def __create_commuters(self) -> None:
         for _ in range(self.num_commuters):
             commuter = Commuter(unique_id=uuid.uuid4().int, model=self)
-            commuter.my_home = self.commuter_grid.get_random_home()
-            commuter.my_work = self.commuter_grid.get_random_work()
+            commuter.my_home = self.grid.get_random_home()
+            commuter.my_work = self.grid.get_random_work()
             commuter.status = "home"
-            self.commuter_grid.place_agent(commuter, commuter.my_home.pos)
-            self.commuter_grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home.pos)
+            self.grid.place_agent(commuter, commuter.my_home.pos)
+            self.grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home.pos)
             self.schedule.add(commuter)
 
     def step(self) -> None:

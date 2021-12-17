@@ -60,7 +60,7 @@ class Commuter(Agent):
 
     @property
     def num_home_friends(self) -> int:
-        return self.model.commuter_grid.home_counter[self.my_home.pos]
+        return self.model.grid.home_counter[self.my_home.pos]
 
     @property
     def num_work_friends(self) -> int:
@@ -98,7 +98,7 @@ class Commuter(Agent):
         # start going to work
         if self.status == "home" and self.model.hour == self.start_time_h and self.model.minute == self.start_time_m:
             self.my_node = self.model.vertex_grid.get_nearest_vertex(self.pos)
-            self.model.commuter_grid.place_agent(self, pos=self.my_node.pos)
+            self.model.grid.move_agent(self, pos=self.my_node.pos)
             self.destination = self.my_work
             self.destination_entrance = self.destination.entrance
             self.__path_select()
@@ -106,7 +106,7 @@ class Commuter(Agent):
         # start going home
         elif self.status == "work" and self.model.hour == self.end_time_h and self.model.minute == self.end_time_m:
             self.my_node = self.model.vertex_grid.get_nearest_vertex(self.pos)
-            self.model.commuter_grid.place_agent(self, pos=self.my_node.pos)
+            self.model.grid.move_agent(self, pos=self.my_node.pos)
             self.destination = self.my_home
             self.destination_entrance = self.destination.entrance
             self.__path_select()
@@ -119,14 +119,14 @@ class Commuter(Agent):
                 dist_1 = self.model.vertex_grid.get_distance(self.pos, next_node.float_pos)
                 remain = self.SPEED
                 while remain > dist_1 and self.step_in_path < len(self.my_path):
-                    self.model.commuter_grid.place_agent(self, next_node.pos)
+                    self.model.grid.move_agent(self, next_node.pos)
                     self.step_in_path += 1
                     remain -= dist_1
                     if self.step_in_path < len(self.my_path):
                         next_node = self.my_path[self.step_in_path]
                     else:
                         remain = 0.0
-                        self.model.commuter_grid.place_agent(self, self.destination_entrance.pos)
+                        self.model.grid.move_agent(self, self.destination_entrance.pos)
                         if self.destination == self.my_work:
                             self.status = "work"
                         elif self.destination == self.my_home:
@@ -134,7 +134,7 @@ class Commuter(Agent):
                         self.model.got_to_destination += 1
                     dist_1 = self.model.vertex_grid.get_distance(self.pos, next_node.float_pos)
             else:
-                self.model.commuter_grid.place_agent(self, self.destination_entrance.pos)
+                self.model.grid.move_agent(self, self.destination_entrance.pos)
                 if self.destination == self.my_work:
                     self.status = "work"
                 elif self.destination == self.my_home:
@@ -146,15 +146,15 @@ class Commuter(Agent):
 
     def __relocate_home(self) -> None:
         old_home = self.my_home
-        while (new_home := self.model.commuter_grid.get_random_home()) == old_home:
+        while (new_home := self.model.grid.get_random_home()) == old_home:
             continue
         self.my_home = new_home
         self.happiness_home = 100.0
-        self.model.commuter_grid.update_home_counter(old_home_pos=old_home.pos, new_home_pos=self.my_home.pos)
+        self.model.grid.update_home_counter(old_home_pos=old_home.pos, new_home_pos=self.my_home.pos)
 
     def __relocate_work(self) -> None:
         old_work = self.my_work
-        while (new_work := self.model.commuter_grid.get_random_work()) == old_work:
+        while (new_work := self.model.grid.get_random_work()) == old_work:
             continue
         self.my_work = new_work
         self.work_friends = set()
@@ -196,7 +196,7 @@ class Commuter(Agent):
         if self.status == "work":
             for work_friend in self.work_friends:
                 work_friend.testing = True
-            commuters_to_check = [commuter for commuter in self.model.commuter_grid[self.pos] if not commuter.testing]
+            commuters_to_check = [commuter for commuter in self.model.grid[self.pos] if not commuter.testing]
             if commuters_to_check and np.random.uniform(0.0, 100.0) < self.CHANCE_NEW_FRIEND:
                 target_friend = random.choice(commuters_to_check)
                 target_friend.work_friends.add(self)
