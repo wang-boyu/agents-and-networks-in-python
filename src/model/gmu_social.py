@@ -1,10 +1,12 @@
 import uuid
+from collections import Counter
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from mesa import Model
 from mesa.time import RandomActivation
+from mesa.datacollection import DataCollector
 
 from src.agent.vertex import Vertex
 from src.agent.commuter import Commuter
@@ -12,6 +14,16 @@ from src.space.vertex_grid import VertexGrid
 from src.space.commuter_grid import CommuterGrid
 from src.space.building_centroid import BuildingCentroid
 from src.space.utils import get_coord_matrix, get_affine_transform, get_rounded_coordinate
+
+
+def get_commuter_status_count(model):
+    commuter_status = [commuter.status if commuter.status != "transport" else "traveling"
+                       for commuter in model.schedule.agents]
+    return Counter(commuter_status)
+
+
+def get_time(model):
+    return pd.Timedelta(days=model.day, hours=model.hour, minutes=model.minute)
 
 
 class GmuSocial(Model):
@@ -27,14 +39,16 @@ class GmuSocial(Model):
     commuter_grid: CommuterGrid
     got_to_destination: int  # count the total number of arrivals
     num_commuters: int
+    day: int
     hour: int
     minute: int
+    datacollector: DataCollector
 
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_size_file: str,
                  grid_width: int = 80, grid_height: int = 40,
                  num_commuters: int = 109, commuter_min_friends: int = 5, commuter_max_friends: int = 10,
                  commuter_happiness_increase: float = 0.5, commuter_happiness_decrease: float = 0.5,
-                 speed: float = 2.0) -> None:
+                 speed: float = 5.0) -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
         self.gmu_buildings = gpd.read_file(gmu_buildings_file).set_index("Id")
@@ -54,6 +68,8 @@ class GmuSocial(Model):
         self.commuter_grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
 
         self.__setup()
+        self.datacollector = DataCollector(model_reporters={"status": get_commuter_status_count,
+                                                            "time": get_time})
 
     def __setup(self) -> None:
         self.gmu_buildings["centroid"] = self.gmu_buildings["geometry"].centroid
@@ -65,6 +81,7 @@ class GmuSocial(Model):
         self.__set_building_entrance()
         self.got_to_destination = 0
         self.__create_commuters()
+        self.day = 0
         self.hour = 6
         self.minute = 0
 
@@ -133,6 +150,7 @@ class GmuSocial(Model):
             self.schedule.add(commuter)
 
     def step(self) -> None:
+        self.datacollector.collect(self)
         self.__update_clock()
         self.schedule.step()
 
@@ -141,6 +159,7 @@ class GmuSocial(Model):
         if self.minute == 60:
             if self.hour == 23:
                 self.hour = 0
+                self.day += 1
             else:
                 self.hour += 1
             self.minute = 0

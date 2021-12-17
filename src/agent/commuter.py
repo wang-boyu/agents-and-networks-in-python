@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Set
 
 import numpy as np
 from mesa import Agent, Model
@@ -25,7 +25,7 @@ class Commuter(Agent):
     start_time_m: int
     end_time_h: int  # time to leave work, hour and minute
     end_time_m: int
-    num_work_friends: int  # number of friends at work
+    work_friends: Set[Commuter]  # set of friends at work
     status: str  # work, home, or transport
     testing: bool  # a temp variable used in identifying friends
     happiness_home: float
@@ -48,11 +48,11 @@ class Commuter(Agent):
         self.end_time_m = self.start_time_m
         self.happiness_work = 100.0
         self.happiness_home = 100.0
-        self.num_work_friends = 0
+        self.work_friends = set()
 
     def __repr__(self) -> str:
         return f"Commuter(unique_id={self.unique_id}, pos={self.pos}, status={self.status}, " \
-               f"num_home_friends={self.num_home_friends}, num_work_friends={self.num_work_friends})"
+               f"num_home_friends={self.num_home_friends}, num_work_friends={len(self.work_friends)})"
 
     @property
     def num_home_friends(self) -> int:
@@ -66,11 +66,11 @@ class Commuter(Agent):
 
     def __check_happiness(self) -> None:
         if self.status == "work":
-            if self.num_work_friends > self.MAX_FRIENDS:
-                self.happiness_work -= self.HAPPINESS_DECREASE * (self.num_work_friends - self.MAX_FRIENDS)
+            if len(self.work_friends) > self.MAX_FRIENDS:
+                self.happiness_work -= self.HAPPINESS_DECREASE * (len(self.work_friends) - self.MAX_FRIENDS)
             else:
-                if self.num_work_friends < self.MIN_FRIENDS:
-                    self.happiness_work -= self.HAPPINESS_DECREASE * (self.MIN_FRIENDS - self.num_work_friends)
+                if len(self.work_friends) < self.MIN_FRIENDS:
+                    self.happiness_work -= self.HAPPINESS_DECREASE * (self.MIN_FRIENDS - len(self.work_friends))
                 else:
                     self.happiness_work += self.HAPPINESS_INCREASE
             if self.happiness_work < 0.0:
@@ -122,7 +122,7 @@ class Commuter(Agent):
                         if self.destination == self.my_work:
                             self.status = "work"
                         elif self.destination == self.my_home:
-                            self.statu = "home"
+                            self.status = "home"
                         self.model.got_to_destination += 1
                     dist_1 = self.model.vertex_grid.get_distance(self.pos, next_node.float_pos)
             else:
@@ -130,7 +130,7 @@ class Commuter(Agent):
                 if self.destination == self.my_work:
                     self.status = "work"
                 elif self.destination == self.my_home:
-                    self.statu = "home"
+                    self.status = "home"
                 self.model.got_to_destination += 1
 
     def advance(self) -> None:
@@ -149,10 +149,11 @@ class Commuter(Agent):
         while (new_work := self.model.commuter_grid.get_random_work()) == old_work:
             continue
         self.my_work = new_work
-        self.num_work_friends = 0
+        self.work_friends = set()
         self.happiness_work = 100.0
 
     def __path_select(self) -> None:
+        # TODO: cache each path select result in self.model.vertex_grid
         self.my_path = []
         self.step_in_path = 0
         undone_vertices_id = set()
@@ -184,4 +185,8 @@ class Commuter(Agent):
         self.my_path.reverse()
 
     def __make_friends_at_work(self) -> None:
-        pass
+        if self.status == "work":
+            for work_friend in self.work_friends:
+                work_friend.testing = True
+            # TODO
+            # for commuter in self.model.commuter_grid.get_neighbors
