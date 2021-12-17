@@ -1,6 +1,6 @@
 import uuid
-from collections import Counter
 from typing import Dict
+from functools import partial
 
 import geopandas as gpd
 import numpy as np
@@ -17,19 +17,23 @@ from src.space.building_centroid import BuildingCentroid
 from src.space.utils import get_coord_matrix, get_affine_transform, get_rounded_coordinate
 
 
-def get_commuter_status_count(model) -> Counter:
-    commuter_status = [commuter.status if commuter.status != "transport" else "traveling"
-                       for commuter in model.schedule.agents]
-    return Counter(commuter_status)
-
-
 def get_time(model) -> pd.Timedelta:
     return pd.Timedelta(days=model.day, hours=model.hour, minutes=model.minute)
 
 
-def get_num_friendships(model) -> Dict[str, int]:
-    return {"home": sum([commuter.num_home_friends for commuter in model.schedule.agents]),
-            "work": sum([commuter.num_work_friends for commuter in model.schedule.agents])}
+def get_num_commuters_by_status(model, status: str) -> int:
+    commuters = [commuter for commuter in model.schedule.agents if commuter.status == status]
+    return len(commuters)
+
+
+def get_total_friendships_by_type(model, friendship_type: str) -> int:
+    if friendship_type == "home":
+        num_friendships = [commuter.num_home_friends for commuter in model.schedule.agents]
+    elif friendship_type == "work":
+        num_friendships = [commuter.num_work_friends for commuter in model.schedule.agents]
+    else:
+        raise ValueError(f"Unsupported friendship type: {friendship_type}. Must be home or work.")
+    return sum(num_friendships)
 
 
 class GmuSocial(Model):
@@ -75,9 +79,14 @@ class GmuSocial(Model):
         self.commuter_grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
 
         self.__setup()
-        self.datacollector = DataCollector(model_reporters={"status": get_commuter_status_count,
-                                                            "time": get_time,
-                                                            "num_friendships": get_num_friendships})
+        self.datacollector = DataCollector(model_reporters={
+            "time": get_time,
+            "status_home": partial(get_num_commuters_by_status, status="home"),
+            "status_work": partial(get_num_commuters_by_status, status="work"),
+            "status_traveling": partial(get_num_commuters_by_status, status="transport"),
+            "friendship_home": partial(get_total_friendships_by_type, friendship_type="home"),
+            "friendship_work": partial(get_total_friendships_by_type, friendship_type="work")
+        })
 
     def __setup(self) -> None:
         self.gmu_buildings["centroid"] = self.gmu_buildings["geometry"].centroid

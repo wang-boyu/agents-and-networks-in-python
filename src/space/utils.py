@@ -13,7 +13,7 @@ def get_coord_matrix(x_min: float, x_max: float, y_min: float, y_max: float) -> 
 
 def get_affine_transform(from_coord: np.ndarray, to_coord: np.ndarray) -> \
         Tuple[float, float, float, float, float, float]:
-    A, res, rank, s = np.linalg.lstsq(from_coord, to_coord)
+    A, res, rank, s = np.linalg.lstsq(from_coord, to_coord, rcond=None)
 
     np.testing.assert_array_almost_equal(res, np.zeros_like(res), decimal=15)
     np.testing.assert_array_almost_equal(A[:, 2], np.array([0.0, 0.0, 1.0]), decimal=15)
