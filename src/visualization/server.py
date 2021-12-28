@@ -5,6 +5,7 @@ from mesa_geo.visualization.MapModule import MapModule
 
 from src.model.gmu_social import GmuSocial
 from src.agent.gmu_building import GmuBuilding
+from src.agent.road_vertex import RoadVertex
 
 # class HappyElement(TextElement):
 #     def __init__(self):
@@ -18,6 +19,7 @@ model_params = {
     "gmu_buildings_file": "data/raw/campus/Mason_bld.shp",
     "gmu_walkway_file": "data/raw/campus/Mason_walkway_line.shp",
     "world_size_file": "data/raw/campus/world.shp",
+    "show_walkway": True
     # "density": UserSettableParameter("slider", "Agent density", 0.6, 0.1, 1.0, 0.1),
     # "minority_pc": UserSettableParameter(
     #     "slider", "Fraction minority", 0.2, 0.00, 1.0, 0.05
@@ -27,14 +29,18 @@ model_params = {
 
 def gmu_social_draw(agent):
     portrayal = dict()
-    if agent.function is None:
-        portrayal["color"] = "Grey"
-    elif agent.function == 1.0:
-        portrayal["color"] = "Blue"
-    elif agent.function == 2.0:
-        portrayal["color"] = "Green"
-    else:
-        portrayal["color"] = "Grey"
+    if isinstance(agent, GmuBuilding):
+        if agent.function is None:
+            portrayal["color"] = "Grey"
+        elif agent.function == 1.0:
+            portrayal["color"] = "Blue"
+        elif agent.function == 2.0:
+            portrayal["color"] = "Green"
+        else:
+            portrayal["color"] = "Grey"
+    if isinstance(agent, RoadVertex):
+        portrayal["radius"] = "1"
+        portrayal["color"] = "Red"
     return portrayal
 
 
