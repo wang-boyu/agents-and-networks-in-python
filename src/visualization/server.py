@@ -18,7 +18,7 @@ from src.agent.road_vertex import RoadVertex
 model_params = {
     "gmu_buildings_file": "data/raw/campus/Mason_bld.shp",
     "gmu_walkway_file": "data/raw/campus/Mason_walkway_line.shp",
-    "world_size_file": "data/raw/campus/world.shp",
+    "world_file": "data/raw/campus/world.shp",
     "show_walkway": True
     # "density": UserSettableParameter("slider", "Agent density", 0.6, 0.1, 1.0, 0.1),
     # "minority_pc": UserSettableParameter(
