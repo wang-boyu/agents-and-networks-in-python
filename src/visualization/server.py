@@ -40,7 +40,10 @@ def gmu_social_draw(agent):
             portrayal["color"] = "Grey"
     if isinstance(agent, RoadVertex):
         portrayal["radius"] = "1"
-        portrayal["color"] = "Red"
+        if agent.is_entrance:
+            portrayal["color"] = "Red"
+        else:
+            portrayal["color"] = "Grey"
     return portrayal
 
 
