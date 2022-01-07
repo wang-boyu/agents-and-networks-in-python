@@ -1,13 +1,10 @@
 from typing import Dict, List, Tuple, Optional
 
-import numpy as np
-from mesa.agent import Agent
-from mesa.space import SingleGrid, Coordinate, FloatCoordinate
-from sklearn.neighbors import KDTree
-from mesa_geo.geospace import GeoSpace
+from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
+from mesa_geo.geospace import GeoSpace
+from sklearn.neighbors import KDTree
 
-from src.space.utils import get_rounded_coordinate
 from src.agent.road_vertex import RoadVertex
 
 
@@ -25,6 +22,9 @@ class VertexSpace(GeoSpace):
         super().add_agents(agents)
         for agent in agents:
             self.__vertices[(agent.shape.x, agent.shape.y)] = agent
+
+    def get_vertex_by_pos(self, float_pos: FloatCoordinate) -> RoadVertex:
+        return self.__vertices[float_pos]
 
     def get_nearest_vertex(self, float_pos: FloatCoordinate) -> RoadVertex:
         vertex_index = self.__tree.query([float_pos], k=1, return_distance=False)

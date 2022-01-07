@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Tuple
 
 from mesa.model import Model
 from mesa.space import Coordinate, FloatCoordinate
@@ -13,7 +12,7 @@ class GmuBuilding(GeoAgent):
     shape: Polygon
     centroid: FloatCoordinate
     function: float  # 1.0 for work, 2.0 for home, 0.0 for neither
-    entrance_pos: Tuple[float, float]  # nearest vertex on road
+    entrance_pos: FloatCoordinate  # nearest vertex on road
     entrance_id: int
 
     def __init__(self, unique_id, model, shape) -> None:
