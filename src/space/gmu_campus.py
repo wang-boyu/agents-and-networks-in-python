@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict
-from typing import Dict, Tuple, Optional, DefaultDict
+from typing import Dict, Tuple, Optional, DefaultDict, Set
 
 from mesa.space import FloatCoordinate
 from mesa_geo.geospace import GeoSpace
@@ -16,6 +16,8 @@ class GmuCampus(GeoSpace):
     other_buildings: Tuple[GmuBuilding]
     home_counter: DefaultDict[FloatCoordinate, int]
     __buildings: Dict[int, GmuBuilding]
+    __commuters_pos_map: DefaultDict[FloatCoordinate, Set[Commuter]]
+    __commuter_id_map: Dict[int, Commuter]
 
     def __init__(self, crs: str) -> None:
         super().__init__(crs=crs)
@@ -24,6 +26,8 @@ class GmuCampus(GeoSpace):
         self.other_buildings = tuple()
         self.home_counter = defaultdict(int)
         self.__buildings = dict()
+        self.__commuters_pos_map = defaultdict(set)
+        self.__commuter_id_map = dict()
 
     def get_random_home(self) -> GmuBuilding:
         return random.choice(self.homes)
@@ -50,17 +54,30 @@ class GmuCampus(GeoSpace):
         self.works = self.works + tuple(works)
         self.homes = self.homes + tuple(homes)
 
+    def get_commuters_by_pos(self, float_pos: FloatCoordinate) -> Set[Commuter]:
+        return self.__commuters_pos_map[float_pos]
+
+    def get_commuter_by_id(self, commuter_id: int) -> Commuter:
+        return self.__commuter_id_map[commuter_id]
+
+    def add_commuter(self, agent: Commuter) -> None:
+        super().add_agents(agent)
+        self.__commuters_pos_map[(agent.shape.x, agent.shape.y)].add(agent)
+        self.__commuter_id_map[agent.unique_id] = agent
+
     def update_home_counter(self, old_home_pos: Optional[FloatCoordinate], new_home_pos: FloatCoordinate) -> None:
         if old_home_pos is not None:
             self.home_counter[old_home_pos] -= 1
         self.home_counter[new_home_pos] += 1
 
     def move_commuter(self, commuter: Commuter, pos: FloatCoordinate) -> None:
-        self.__remove_agent(commuter)
+        self.__remove_commuter(commuter)
         commuter.shape = Point(pos)
-        self.add_agents(commuter)
+        self.add_commuter(commuter)
 
-    def __remove_agent(self, commuter: Commuter) -> None:
+    def __remove_commuter(self, commuter: Commuter) -> None:
         super().remove_agent(commuter)
         # delete_agent() not working properly. Reference: https://github.com/Corvince/mesa-geo/issues/28
         del self.idx.agents[id(commuter)]
+        del self.__commuter_id_map[commuter.unique_id]
+        self.__commuters_pos_map[(commuter.shape.x, commuter.shape.y)].remove(commuter)

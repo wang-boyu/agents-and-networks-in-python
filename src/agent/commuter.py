@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import logging
 import random
 from typing import List, Set
 
@@ -8,21 +10,22 @@ from mesa import Agent, Model
 from mesa.space import Coordinate, FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
 
-from src.agent.road_vertex import RoadVertex
+from src.logger import logger
 
 
 class Commuter(GeoAgent):
     unique_id: int  # commuter_id, used to link commuters and nodes
     model: Model
     shape: Point
-    my_node: RoadVertex  # where he begins his trip
+    my_node_id: int  # where he begins his trip
+    my_node_pos: FloatCoordinate
     destination_id: int  # the destination he wants to arrive at
     destination_pos: FloatCoordinate
     destination_entrance_id: int
     destination_entrance_pos: FloatCoordinate
     my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
-    last_stop: RoadVertex  # last destination
+    # last_stop: RoadVertex  # last destination
     my_home_id: int
     my_home_pos: FloatCoordinate  # home location
     my_work_id: int
@@ -31,7 +34,7 @@ class Commuter(GeoAgent):
     start_time_m: int
     end_time_h: int  # time to leave work, hour and minute
     end_time_m: int
-    work_friends: List[Commuter]  # set of friends at work
+    work_friends_id: List[int]  # set of friends at work
     status: str  # work, home, or transport
     testing: bool  # a temp variable used in identifying friends
     happiness_home: float
@@ -45,7 +48,7 @@ class Commuter(GeoAgent):
 
     def __init__(self, unique_id, model, shape) -> None:
         super().__init__(unique_id, model, shape)
-        self.last_stop = None
+        # self.last_stop = None
         self.start_time_h = round(np.random.normal(6.5, 1))
         while self.start_time_h < 6 or self.start_time_h > 9:
             self.start_time_h = round(np.random.normal(6.5, 1))
@@ -54,12 +57,12 @@ class Commuter(GeoAgent):
         self.end_time_m = self.start_time_m
         self.happiness_work = 100.0
         self.happiness_home = 100.0
-        self.work_friends = []
+        self.work_friends_id = []
         self.testing = False
 
     def __repr__(self) -> str:
         return f"Commuter(unique_id={self.unique_id}, shape={self.shape}, status={self.status}, " \
-               f"num_home_friends={self.num_home_friends}, num_work_friends={len(self.work_friends)})"
+               f"num_home_friends={self.num_home_friends}, num_work_friends={len(self.work_friends_id)})"
 
     @property
     def num_home_friends(self) -> int:
@@ -67,7 +70,7 @@ class Commuter(GeoAgent):
 
     @property
     def num_work_friends(self) -> int:
-        return len(self.work_friends)
+        return len(self.work_friends_id)
 
     def step(self) -> None:
         self.__check_happiness()
@@ -77,11 +80,11 @@ class Commuter(GeoAgent):
 
     def __check_happiness(self) -> None:
         if self.status == "work":
-            if len(self.work_friends) > self.MAX_FRIENDS:
-                self.happiness_work -= self.HAPPINESS_DECREASE * (len(self.work_friends) - self.MAX_FRIENDS)
+            if len(self.work_friends_id) > self.MAX_FRIENDS:
+                self.happiness_work -= self.HAPPINESS_DECREASE * (len(self.work_friends_id) - self.MAX_FRIENDS)
             else:
-                if len(self.work_friends) < self.MIN_FRIENDS:
-                    self.happiness_work -= self.HAPPINESS_DECREASE * (self.MIN_FRIENDS - len(self.work_friends))
+                if len(self.work_friends_id) < self.MIN_FRIENDS:
+                    self.happiness_work -= self.HAPPINESS_DECREASE * (self.MIN_FRIENDS - len(self.work_friends_id))
                 else:
                     self.happiness_work += self.HAPPINESS_INCREASE
             if self.happiness_work < 0.0:
@@ -100,8 +103,10 @@ class Commuter(GeoAgent):
     def __prepare_to_move(self) -> None:
         # start going to work
         if self.status == "home" and self.model.hour == self.start_time_h and self.model.minute == self.start_time_m:
-            self.my_node = self.model.vertex_grid.get_nearest_vertex((self.shape.x, self.shape.y))
-            self.model.grid.move_commuter(self, pos=(self.my_node.shape.x, self.my_node.shape.y))
+            nearest_vertex = self.model.vertex_grid.get_nearest_vertex((self.shape.x, self.shape.y))
+            self.my_node_id = nearest_vertex.unique_id
+            self.my_node_pos = nearest_vertex.shape.x, nearest_vertex.shape.y
+            self.model.grid.move_commuter(self, pos=self.my_node_pos)
             self.destination_id = self.my_work_id
             self.destination_pos = self.my_work_pos
             self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
@@ -110,8 +115,10 @@ class Commuter(GeoAgent):
             self.status = "transport"
         # start going home
         elif self.status == "work" and self.model.hour == self.end_time_h and self.model.minute == self.end_time_m:
-            self.my_node = self.model.vertex_grid.get_nearest_vertex((self.shape.x, self.shape.y))
-            self.model.grid.move_commuter(self, pos=(self.my_node.shape.x, self.my_node.shape.y))
+            nearest_vertex = self.model.vertex_grid.get_nearest_vertex((self.shape.x, self.shape.y))
+            self.my_node_id = nearest_vertex.unique_id
+            self.my_node_pos = nearest_vertex.shape.x, nearest_vertex.shape.y
+            self.model.grid.move_commuter(self, pos=self.my_node_pos)
             self.destination_id = self.my_home_id
             self.destination_pos = self.my_home_pos
             self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
@@ -121,7 +128,7 @@ class Commuter(GeoAgent):
 
     def __move(self) -> None:
         if self.status == "transport":
-            if self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), self.destination_entrance_pos) > 0.5:
+            if self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), self.destination_entrance_pos) > 5:
                 next_position = self.my_path[self.step_in_path]
                 dist_1 = self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), next_position)
                 remain = self.SPEED
@@ -134,17 +141,17 @@ class Commuter(GeoAgent):
                     else:
                         remain = 0.0
                         self.model.grid.move_commuter(self, self.destination_entrance_pos)
-                        if self.destination_id == self.my_work.unique_id:
+                        if self.destination_id == self.my_work_id:
                             self.status = "work"
-                        elif self.destination_id == self.my_home.unique_id:
+                        elif self.destination_id == self.my_home_id:
                             self.status = "home"
                         self.model.got_to_destination += 1
                     dist_1 = self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), next_position)
             else:
                 self.model.grid.move_commuter(self, self.destination_entrance_pos)
-                if self.destination_id == self.my_work.unique_id:
+                if self.destination_id == self.my_work_id:
                     self.status = "work"
-                elif self.destination_id == self.my_home.unique_id:
+                elif self.destination_id == self.my_home_id:
                     self.status = "home"
                 self.model.got_to_destination += 1
 
@@ -171,12 +178,14 @@ class Commuter(GeoAgent):
                 break
         self.my_work_id = new_work.unique_id
         self.my_work_pos = new_work.centroid
-        self.work_friends = []
+        self.work_friends_id = []
         self.happiness_work = 100.0
 
+    @logger
     def __path_select(self) -> None:
+        log = logging.getLogger(__name__)
         self.step_in_path = 0
-        if (cached_path := self.model.vertex_grid.get_cached_path(from_vertex_id=self.my_node.unique_id,
+        if (cached_path := self.model.vertex_grid.get_cached_path(from_vertex_id=self.my_node_id,
                                                                   to_vertex_id=self.destination_entrance_id)) \
                 is not None:
             self.my_path = cached_path
@@ -187,41 +196,53 @@ class Commuter(GeoAgent):
                 if vertex is not None:
                     vertex.dist = 99999
                     vertex.done = 0
-                    vertex.last_node = None
+                    vertex.last_node_id = None
                     undone_vertices_id.add(vertex.unique_id)
-            self.my_node.dist = 0
+            self.model.vertex_grid.get_vertex_by_id(self.my_node_id).dist = 0
 
+            # previous_num_undone_vertices = 0
             while undone_vertices_id:
+                # num_undone_vertices = len(undone_vertices_id)
+                # if num_undone_vertices == previous_num_undone_vertices:
+                #     breakpoint()
+                # previous_num_undone_vertices = num_undone_vertices
                 for vertex in self.model.vertex_grid.agents:
                     if vertex is not None and vertex.dist < 99999 and vertex.done == 0:
-                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=3):
-                            distance = self.model.vertex_grid.distance(vertex, neighbor)
-                            dist_0 = distance + vertex.dist
-                            if neighbor.dist > dist_0:
-                                neighbor.dist = dist_0
-                                neighbor.done = 0
-                                neighbor.last_node = vertex
-                                undone_vertices_id.add(neighbor.unique_id)
+                        neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=200)
+                        num_neighbors = len(list(neighbors))
+                        # print(f"number of neighbors found: {num_neighbors}")
+                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=200):
+                            if vertex != neighbor:
+                                distance = self.model.vertex_grid.distance(vertex, neighbor)
+                                dist_0 = distance + vertex.dist
+                                if neighbor.dist > dist_0:
+                                    neighbor.dist = dist_0
+                                    neighbor.done = 0
+                                    neighbor.last_node_id = vertex.unique_id
+                                    undone_vertices_id.add(neighbor.unique_id)
                         vertex.done = 1
                         undone_vertices_id.remove(vertex.unique_id)
-            x = self.destination_entrance
-            while x != self.my_node:
-                self.my_path.append(x.float_pos)
-                x = x.last_node
+            x = self.destination_entrance_id
+
+            while x != self.my_node_id:
+                x_node = self.model.vertex_grid.get_vertex_by_id(x)
+                self.my_path.append((x_node.shape.x, x_node.shape.y))
+                x = x_node.last_node_id
             self.my_path.reverse()
-            self.model.vertex_grid.cache_path(from_vertex_id=self.my_node.unique_id,
+            self.model.vertex_grid.cache_path(from_vertex_id=self.my_node_id,
                                               to_vertex_id=self.destination_entrance_id,
                                               path=self.my_path)
+        log.info(f"path found. length of path: {len(self.my_path)}")
 
     def __make_friends_at_work(self) -> None:
         if self.status == "work":
-            for work_friend in self.work_friends:
-                work_friend.testing = True
-            commuters_to_check = [commuter for commuter in self.model.grid[(self.shape.x, self.shape.y)] if
-                                  not commuter.testing]
+            for work_friend_id in self.work_friends_id:
+                self.model.grid.get_commuter_by_id(work_friend_id).testing = True
+            commuters_to_check = [c for c in self.model.grid.get_commuters_by_pos((self.shape.x, self.shape.y))
+                                  if not c.testing]
             if commuters_to_check and np.random.uniform(0.0, 100.0) < self.CHANCE_NEW_FRIEND:
                 target_friend = random.choice(commuters_to_check)
-                target_friend.work_friends.append(self)
-                self.work_friends.append(target_friend)
-            for work_friend in self.work_friends:
-                work_friend.testing = False
+                target_friend.work_friends_id.append(self.unique_id)
+                self.work_friends_id.append(target_friend.unique_id)
+            for work_friend_id in self.work_friends_id:
+                self.model.grid.get_commuter_by_id(work_friend_id).testing = False

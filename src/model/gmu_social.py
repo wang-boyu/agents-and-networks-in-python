@@ -17,6 +17,7 @@ from src.agent.road_vertex import RoadVertex
 from src.space.vertex_space import VertexSpace
 from src.space.gmu_campus import GmuCampus
 from src.agent.commuter import Commuter
+from src.logger import logger
 
 
 class GmuSocial(Model):
@@ -35,7 +36,7 @@ class GmuSocial(Model):
 
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_file: str,
                  num_commuters, commuter_min_friends=5, commuter_max_friends=10, commuter_happiness_increase=0.5,
-                 commuter_happiness_decrease=0.5, speed=5.0, chance_new_friend=5.0,
+                 commuter_happiness_decrease=0.5, speed=500.0, chance_new_friend=5.0,
                  crs="epsg:3857", show_walkway=False) -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
@@ -71,7 +72,7 @@ class GmuSocial(Model):
             commuter.my_work_id = random_work.unique_id
             commuter.my_work_pos = random_work.centroid
             commuter.status = "home"
-            self.grid.add_agents(commuter)
+            self.grid.add_commuter(commuter)
             self.grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home_pos)
             self.schedule.add(commuter)
 

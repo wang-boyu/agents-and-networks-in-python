@@ -1,7 +1,6 @@
-from __future__ import annotations
+import json
 
 from mesa import Model
-from mesa.space import Coordinate, FloatCoordinate
 from mesa_geo import GeoAgent
 from shapely.geometry import Point
 
@@ -15,7 +14,7 @@ class RoadVertex(GeoAgent):
     # the following variables are used and renewed in each path-selection
     dist: int  # distance from original point to here
     done: bool  # 1 if has calculated the shortest path through this point, 0 otherwise
-    last_node: RoadVertex  # last node to this point in shortest path
+    last_node_id: int  # last node to this point in shortest path
 
     def __init__(self, unique_id, model, shape) -> None:
         super().__init__(unique_id, model, shape)
@@ -23,7 +22,7 @@ class RoadVertex(GeoAgent):
         self.delete_test = False
         self.dist = 0
         self.done = False
-        self.last_node = None
+        self.last_node_id = None
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(unique_id={self.unique_id}, shape={self.shape}, " \
@@ -39,3 +38,6 @@ class RoadVertex(GeoAgent):
 
     def advance(self) -> None:
         raise NotImplementedError
+
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)

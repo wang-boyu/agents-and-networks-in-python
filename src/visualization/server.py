@@ -1,3 +1,5 @@
+import logging
+
 from mesa_geo.visualization.ModularVisualization import ModularServer
 from mesa.visualization.modules import ChartModule, TextElement
 from mesa.visualization.UserParam import UserSettableParameter
@@ -21,7 +23,7 @@ model_params = {
     "gmu_walkway_file": "data/raw/campus/Mason_walkway_line.shp",
     "world_file": "data/raw/campus/world.shp",
     "show_walkway": True,
-    "num_commuters": 109
+    "num_commuters": 20
     # "density": UserSettableParameter("slider", "Agent density", 0.6, 0.1, 1.0, 0.1),
     # "minority_pc": UserSettableParameter(
     #     "slider", "Fraction minority", 0.2, 0.00, 1.0, 0.05
@@ -40,24 +42,31 @@ def gmu_social_draw(agent):
             portrayal["color"] = "Green"
         else:
             portrayal["color"] = "Grey"
-    if isinstance(agent, RoadVertex):
-        portrayal["radius"] = "2"
-        portrayal["fillOpacity"] = 0.5
-        if agent.is_entrance:
-            portrayal["color"] = "Purple"
-        else:
-            portrayal["color"] = "Yellow"
+    # if isinstance(agent, RoadVertex):
+    #     portrayal["radius"] = "2"
+    #     portrayal["fillOpacity"] = 0.5
+    #     if agent.is_entrance:
+    #         portrayal["color"] = "Purple"
+    #     else:
+    #         portrayal["color"] = "Yellow"
     if isinstance(agent, Commuter):
-        portrayal["radius"] = "1"
+        portrayal["radius"] = "3"
+        portrayal["fillOpacity"] = 1
         if agent.status == "home":
             portrayal["Color"] = "Green"
         elif agent.status == "work":
             portrayal["Color"] = "Blue"
         elif agent.status == "transport":
             portrayal["Color"] = "Red"
+        else:
+            portrayal["Color"] = "Grey"
     return portrayal
 
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s',
+                    level=logging.INFO)
+log = logging.getLogger(__name__)
+log.info('Entered module: %s' % __name__)
 map_element = MapModule(gmu_social_draw, GmuSocial.MAP_COORDS, zoom=16, map_height=500, map_width=500)
 server = ModularServer(
     GmuSocial, [map_element], "GMU-Social", model_params

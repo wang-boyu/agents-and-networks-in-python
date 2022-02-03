@@ -6,6 +6,7 @@ from mesa.space import SingleGrid, Coordinate, FloatCoordinate
 from sklearn.neighbors import KDTree
 
 from src.space.utils import get_rounded_coordinate
+from src.logger import logger
 
 
 class VertexGrid(SingleGrid):
