@@ -1,23 +1,16 @@
 import uuid
-from functools import partial
-import random
 
 import geopandas as gpd
-import numpy as np
-import pandas as pd
 from mesa import Model
 from mesa.time import RandomActivation
-from mesa.datacollection import DataCollector
-from mesa_geo.geoagent import GeoAgent, AgentCreator
-from mesa_geo import GeoSpace
+from mesa_geo.geoagent import AgentCreator
 from shapely.geometry import Point
 
+from src.agent.commuter import Commuter
 from src.agent.gmu_building import GmuBuilding
 from src.agent.road_vertex import RoadVertex
-from src.space.vertex_space import VertexSpace
 from src.space.gmu_campus import GmuCampus
-from src.agent.commuter import Commuter
-from src.logger import logger
+from src.space.vertex_space import VertexSpace
 
 
 class GmuSocial(Model):
@@ -36,7 +29,7 @@ class GmuSocial(Model):
 
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_file: str,
                  num_commuters, commuter_min_friends=5, commuter_max_friends=10, commuter_happiness_increase=0.5,
-                 commuter_happiness_decrease=0.5, speed=500.0, chance_new_friend=5.0,
+                 commuter_happiness_decrease=0.5, speed=100.0, chance_new_friend=5.0,
                  crs="epsg:3857", show_walkway=False) -> None:
         super().__init__()
         self.schedule = RandomActivation(self)

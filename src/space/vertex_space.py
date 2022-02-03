@@ -8,6 +8,7 @@ from sklearn.neighbors import KDTree
 
 from src.agent.road_vertex import RoadVertex
 
+
 class VertexSpace(GeoSpace):
     __tree: KDTree
     __path_select_cache: Dict[Tuple[int, int], List[FloatCoordinate]]

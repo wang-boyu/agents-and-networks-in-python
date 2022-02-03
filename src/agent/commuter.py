@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import List, Set
+from typing import List
 
 import numpy as np
-from shapely.geometry import Point
-from mesa import Agent, Model
-from mesa.space import Coordinate, FloatCoordinate
+from mesa import Model
+from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
+from shapely.geometry import Point
 
 from src.logger import logger
 
@@ -132,7 +132,7 @@ class Commuter(GeoAgent):
                 next_position = self.my_path[self.step_in_path]
                 dist_1 = self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), next_position)
                 remain = self.SPEED
-                while remain > dist_1 and self.step_in_path < len(self.my_path):
+                while remain >= dist_1 and self.step_in_path < len(self.my_path):
                     self.model.grid.move_commuter(self, next_position)
                     self.step_in_path += 1
                     remain -= dist_1
