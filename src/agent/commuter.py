@@ -166,14 +166,14 @@ class Commuter(GeoAgent):
             if new_home.unique_id != old_home_id:
                 break
         self.my_home_id = new_home.unique_id
-        self.my_work_pos = new_home.centroid
+        self.my_home_pos = new_home.centroid
         self.happiness_home = 100.0
-        self.model.grid.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home.centroid)
+        self.model.grid.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home_pos)
 
     def __relocate_work(self) -> None:
         old_work_id = self.my_work_id
         while True:
-            new_work = self.self.model.grid.get_random_work()
+            new_work = self.model.grid.get_random_work()
             if new_work.unique_id != old_work_id:
                 break
         self.my_work_id = new_work.unique_id
@@ -208,10 +208,10 @@ class Commuter(GeoAgent):
                 # previous_num_undone_vertices = num_undone_vertices
                 for vertex in self.model.vertex_grid.agents:
                     if vertex is not None and vertex.dist < 99999 and vertex.done == 0:
-                        neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=200)
+                        neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=100)
                         num_neighbors = len(list(neighbors))
                         # print(f"number of neighbors found: {num_neighbors}")
-                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=200):
+                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=100):
                             if vertex != neighbor:
                                 distance = self.model.vertex_grid.distance(vertex, neighbor)
                                 dist_0 = distance + vertex.dist

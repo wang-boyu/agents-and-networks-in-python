@@ -8,7 +8,6 @@ from sklearn.neighbors import KDTree
 
 from src.agent.road_vertex import RoadVertex
 
-
 class VertexSpace(GeoSpace):
     __tree: KDTree
     __path_select_cache: Dict[Tuple[int, int], List[FloatCoordinate]]
@@ -55,7 +54,7 @@ class VertexSpace(GeoSpace):
     def delete_not_connected(self) -> None:
         not_connected_agents = []
         for agent in self.agents:
-            if len(list(self.get_neighbors_within_distance(agent, distance=10.0))) < 2:
+            if len(list(self.get_neighbors_within_distance(agent, distance=100.0))) < 2:
                 not_connected_agents.append(agent)
         for agent in not_connected_agents:
             self.__remove_agent(agent)

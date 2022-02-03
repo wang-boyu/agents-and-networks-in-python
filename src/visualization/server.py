@@ -23,7 +23,7 @@ model_params = {
     "gmu_walkway_file": "data/raw/campus/Mason_walkway_line.shp",
     "world_file": "data/raw/campus/world.shp",
     "show_walkway": True,
-    "num_commuters": 20
+    "num_commuters": 109
     # "density": UserSettableParameter("slider", "Agent density", 0.6, 0.1, 1.0, 0.1),
     # "minority_pc": UserSettableParameter(
     #     "slider", "Fraction minority", 0.2, 0.00, 1.0, 0.05
