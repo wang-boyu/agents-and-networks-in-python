@@ -8,14 +8,6 @@ from src.agent.gmu_building import GmuBuilding
 from src.agent.geo_agents import GmuDriveway, GmuLakeAndRiver, GmuWalkway
 from src.model.gmu_social import GmuSocial
 
-# class HappyElement(TextElement):
-#     def __init__(self):
-#         pass
-#
-#     def render(self, model):
-#         return "Happy agents: " + str(model.happy)
-
-
 model_params = {
     "gmu_buildings_file": "data/raw/campus/Mason_bld.shp",
     "gmu_walkway_file": "data/raw/campus/Mason_walkway_line.shp",
@@ -36,6 +28,7 @@ model_params = {
 
 def gmu_social_draw(agent):
     portrayal = dict()
+    portrayal["color"] = "White"
     if isinstance(agent, GmuDriveway):
         portrayal["color"] = "Brown"
     if isinstance(agent, GmuWalkway):
@@ -68,7 +61,7 @@ def gmu_social_draw(agent):
         elif agent.status == "transport":
             portrayal["Color"] = "Red"
         else:
-            portrayal["Color"] = "Grey"
+            portrayal["Color"] = "White"
     return portrayal
 
 

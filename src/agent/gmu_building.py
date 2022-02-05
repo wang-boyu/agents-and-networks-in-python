@@ -11,6 +11,7 @@ class GmuBuilding(GeoAgent):
     model: Model
     shape: Polygon
     centroid: FloatCoordinate
+    name: str
     function: float  # 1.0 for work, 2.0 for home, 0.0 for neither
     entrance_pos: FloatCoordinate  # nearest vertex on road
     entrance_id: int
@@ -21,7 +22,7 @@ class GmuBuilding(GeoAgent):
         self.entrance_id = None
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(unique_id={self.unique_id}, function={self.function}, " \
+        return f"{self.__class__.__name__}(unique_id={self.unique_id}, name={self.name}, function={self.function}, " \
                f"centroid={self.centroid})"
 
     def __eq__(self, other):

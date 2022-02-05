@@ -45,8 +45,6 @@ class GmuSocial(Model):
         self.vertex_grid = VertexSpace(crs=crs)
         self.world = gpd.read_file(world_file).set_index("Id").set_crs("epsg:2283", allow_override=True).to_crs(crs)
         self.num_commuters = num_commuters
-        self.__rd = random.Random()
-        self.__rd.seed(seed)
 
         Commuter.MIN_FRIENDS = commuter_min_friends
         Commuter.MAX_FRIENDS = commuter_max_friends
@@ -77,8 +75,10 @@ class GmuSocial(Model):
             commuter = Commuter(unique_id=uuid.uuid4().int, model=self, shape=Point(random_home.centroid))
             commuter.my_home_id = random_home.unique_id
             commuter.my_home_pos = random_home.centroid
+            commuter.my_home_name = random_home.name
             commuter.my_work_id = random_work.unique_id
             commuter.my_work_pos = random_work.centroid
+            commuter.my_work_name = random_work.name
             commuter.status = "home"
             self.grid.add_commuter(commuter)
             self.grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home_pos)
@@ -104,7 +104,7 @@ class GmuSocial(Model):
         for _, row in walkway_df.iterrows():
             for point in row["geometry"].coords:
                 vertex_set.add(point)
-        vertex_dict = {uuid.UUID(int=self.__rd.getrandbits(128)).int: Point(vertex) for vertex in vertex_set}
+        vertex_dict = {uuid.uuid4().int: Point(vertex) for vertex in vertex_set}
         vertex_df = gpd.GeoDataFrame.from_dict(vertex_dict,
                                                orient="index").rename(columns={0: "geometry"}).set_crs(crs)
         vertex_creator = AgentCreator(RoadVertex, {"model": self}, crs=crs)

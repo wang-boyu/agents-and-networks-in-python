@@ -19,8 +19,10 @@ class Commuter(GeoAgent):
     shape: Point
     my_node_id: int  # where he begins his trip
     my_node_pos: FloatCoordinate
+    my_node_name: str
     destination_id: int  # the destination he wants to arrive at
     destination_pos: FloatCoordinate
+    destination_name: str
     destination_entrance_id: int
     destination_entrance_pos: FloatCoordinate
     my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
@@ -28,8 +30,10 @@ class Commuter(GeoAgent):
     # last_stop: RoadVertex  # last destination
     my_home_id: int
     my_home_pos: FloatCoordinate  # home location
+    my_home_name: str
     my_work_id: int
     my_work_pos: FloatCoordinate  # work location
+    my_work_name: str
     start_time_h: int  # time to start going to work, hour and minute
     start_time_m: int
     end_time_h: int  # time to leave work, hour and minute
@@ -103,24 +107,26 @@ class Commuter(GeoAgent):
     def __prepare_to_move(self) -> None:
         # start going to work
         if self.status == "home" and self.model.hour == self.start_time_h and self.model.minute == self.start_time_m:
-            nearest_vertex = self.model.vertex_grid.get_nearest_vertex((self.shape.x, self.shape.y))
-            self.my_node_id = nearest_vertex.unique_id
-            self.my_node_pos = nearest_vertex.shape.x, nearest_vertex.shape.y
+            self.my_node_id = self.model.grid.get_building_by_id(self.my_home_id).entrance_id
+            self.my_node_pos = self.model.grid.get_building_by_id(self.my_home_id).entrance_pos
+            self.my_node_name = self.model.grid.get_building_by_id(self.my_home_id).name
             self.model.grid.move_commuter(self, pos=self.my_node_pos)
             self.destination_id = self.my_work_id
             self.destination_pos = self.my_work_pos
+            self.destination_name = self.my_work_name
             self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
             self.destination_entrance_pos = self.model.grid.get_building_by_id(self.destination_id).entrance_pos
             self.__path_select()
             self.status = "transport"
         # start going home
         elif self.status == "work" and self.model.hour == self.end_time_h and self.model.minute == self.end_time_m:
-            nearest_vertex = self.model.vertex_grid.get_nearest_vertex((self.shape.x, self.shape.y))
-            self.my_node_id = nearest_vertex.unique_id
-            self.my_node_pos = nearest_vertex.shape.x, nearest_vertex.shape.y
+            self.my_node_id = self.model.grid.get_building_by_id(self.my_work_id).entrance_id
+            self.my_node_pos = self.model.grid.get_building_by_id(self.my_work_id).entrance_pos
+            self.my_node_name = self.model.grid.get_building_by_id(self.my_work_id).name
             self.model.grid.move_commuter(self, pos=self.my_node_pos)
             self.destination_id = self.my_home_id
             self.destination_pos = self.my_home_pos
+            self.destination_name = self.my_home_name
             self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
             self.destination_entrance_pos = self.model.grid.get_building_by_id(self.destination_id).entrance_pos
             self.__path_select()
@@ -167,6 +173,7 @@ class Commuter(GeoAgent):
                 break
         self.my_home_id = new_home.unique_id
         self.my_home_pos = new_home.centroid
+        self.my_node_name = new_home.name
         self.happiness_home = 100.0
         self.model.grid.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home_pos)
 
@@ -178,6 +185,7 @@ class Commuter(GeoAgent):
                 break
         self.my_work_id = new_work.unique_id
         self.my_work_pos = new_work.centroid
+        self.my_work_name = new_work.name
         self.work_friends_id = []
         self.happiness_work = 100.0
 
@@ -185,8 +193,8 @@ class Commuter(GeoAgent):
     def __path_select(self) -> None:
         log = logging.getLogger(__name__)
         self.step_in_path = 0
-        if (cached_path := self.model.vertex_grid.get_cached_path(from_vertex_id=self.my_node_id,
-                                                                  to_vertex_id=self.destination_entrance_id)) \
+        if (cached_path := self.model.vertex_grid.get_cached_path(from_building=self.my_node_name,
+                                                                  to_building=self.destination_name)) \
                 is not None:
             print("path cache hit")
             self.my_path = cached_path
@@ -231,8 +239,7 @@ class Commuter(GeoAgent):
                 self.my_path.append((x_node.shape.x, x_node.shape.y))
                 x = x_node.last_node_id
             self.my_path.reverse()
-            self.model.vertex_grid.cache_path(from_vertex_id=self.my_node_id,
-                                              to_vertex_id=self.destination_entrance_id,
+            self.model.vertex_grid.cache_path(from_building=self.my_node_name, to_building=self.destination_name,
                                               path=self.my_path)
         log.info(f"path found. length of path: {len(self.my_path)}")
 
