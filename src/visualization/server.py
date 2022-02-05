@@ -1,6 +1,7 @@
 import logging
 
 from mesa.visualization.modules import ChartModule, TextElement
+from mesa.visualization.UserParam import UserSettableParameter
 from mesa_geo.visualization.MapModule import MapModule
 from mesa_geo.visualization.ModularVisualization import ModularServer
 
@@ -29,7 +30,8 @@ model_params = {
     "show_walkway": True,
     "show_lakes_and_rivers": True,
     "show_driveway": True,
-    "num_commuters": 50
+    "num_commuters": UserSettableParameter('slider',
+                                           'Number of Commuters', value=50, min_value=10, max_value=150, step=10)
     # "density": UserSettableParameter("slider", "Agent density", 0.6, 0.1, 1.0, 0.1),
     # "minority_pc": UserSettableParameter(
     #     "slider", "Fraction minority", 0.2, 0.00, 1.0, 0.05
