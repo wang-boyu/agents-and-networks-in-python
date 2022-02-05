@@ -189,17 +189,14 @@ class Commuter(GeoAgent):
         self.work_friends_id = []
         self.happiness_work = 100.0
 
-    @logger
     def __path_select(self) -> None:
         log = logging.getLogger(__name__)
         self.step_in_path = 0
         if (cached_path := self.model.vertex_grid.get_cached_path(from_building=self.my_node_name,
                                                                   to_building=self.destination_name)) \
                 is not None:
-            print("path cache hit")
             self.my_path = cached_path
         else:
-            print("path cache miss")
             self.my_path = []
             undone_vertices_id = set()
             for vertex in self.model.vertex_grid.agents:
@@ -241,7 +238,6 @@ class Commuter(GeoAgent):
             self.my_path.reverse()
             self.model.vertex_grid.cache_path(from_building=self.my_node_name, to_building=self.destination_name,
                                               path=self.my_path)
-        log.info(f"path found. length of path: {len(self.my_path)}")
 
     def __make_friends_at_work(self) -> None:
         if self.status == "work":

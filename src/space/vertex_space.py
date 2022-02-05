@@ -78,5 +78,4 @@ class VertexSpace(GeoSpace):
             pickle.dump(self.__path_select_cache, cached_result)
 
     def get_cached_path(self, from_building: str, to_building: str) -> Optional[List[FloatCoordinate]]:
-        print(f"number of cached paths: {len(self.__path_select_cache)}")
         return self.__path_select_cache.get((from_building, to_building), None)

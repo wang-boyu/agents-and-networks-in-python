@@ -1,5 +1,6 @@
 import logging
 
+from mesa.visualization.modules import ChartModule, TextElement
 from mesa_geo.visualization.MapModule import MapModule
 from mesa_geo.visualization.ModularVisualization import ModularServer
 
@@ -7,6 +8,16 @@ from src.agent.commuter import Commuter
 from src.agent.gmu_building import GmuBuilding
 from src.agent.geo_agents import GmuDriveway, GmuLakeAndRiver, GmuWalkway
 from src.model.gmu_social import GmuSocial
+
+
+class ClockElement(TextElement):
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def render(self, model):
+        return f"Day {model.day}, {model.hour:02d}:{model.minute:02d}"
+
 
 model_params = {
     "gmu_buildings_file": "data/raw/campus/Mason_bld.shp",
@@ -18,7 +29,7 @@ model_params = {
     "show_walkway": True,
     "show_lakes_and_rivers": True,
     "show_driveway": True,
-    "num_commuters": 109
+    "num_commuters": 50
     # "density": UserSettableParameter("slider", "Agent density", 0.6, 0.1, 1.0, 0.1),
     # "minority_pc": UserSettableParameter(
     #     "slider", "Fraction minority", 0.2, 0.00, 1.0, 0.05
@@ -31,11 +42,11 @@ def gmu_social_draw(agent):
     portrayal["color"] = "White"
     if isinstance(agent, GmuDriveway):
         portrayal["color"] = "Brown"
-    if isinstance(agent, GmuWalkway):
+    elif isinstance(agent, GmuWalkway):
         portrayal["color"] = "Brown"
-    if isinstance(agent, GmuLakeAndRiver):
+    elif isinstance(agent, GmuLakeAndRiver):
         portrayal["color"] = "Blue"
-    if isinstance(agent, GmuBuilding):
+    elif isinstance(agent, GmuBuilding):
         if agent.function is None:
             portrayal["color"] = "Grey"
         elif agent.function == 1.0:
@@ -44,24 +55,24 @@ def gmu_social_draw(agent):
             portrayal["color"] = "Green"
         else:
             portrayal["color"] = "Grey"
-    # if isinstance(agent, RoadVertex):
+    # elif isinstance(agent, RoadVertex):
     #     portrayal["radius"] = "2"
     #     portrayal["fillOpacity"] = 0.5
     #     if agent.is_entrance:
     #         portrayal["color"] = "Purple"
     #     else:
     #         portrayal["color"] = "Yellow"
-    if isinstance(agent, Commuter):
+    elif isinstance(agent, Commuter):
+        if agent.status == "home":
+            portrayal["color"] = "Green"
+        elif agent.status == "work":
+            portrayal["color"] = "Blue"
+        elif agent.status == "transport":
+            portrayal["color"] = "Red"
+        else:
+            portrayal["color"] = "Grey"
         portrayal["radius"] = "3"
         portrayal["fillOpacity"] = 1
-        if agent.status == "home":
-            portrayal["Color"] = "Green"
-        elif agent.status == "work":
-            portrayal["Color"] = "Blue"
-        elif agent.status == "transport":
-            portrayal["Color"] = "Red"
-        else:
-            portrayal["Color"] = "White"
     return portrayal
 
 
@@ -70,7 +81,15 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)
 log = logging.getLogger(__name__)
 log.info('Entered module: %s' % __name__)
 map_element = MapModule(gmu_social_draw, GmuSocial.MAP_COORDS, zoom=16, map_height=500, map_width=500)
+clock_element = ClockElement()
+status_chart = ChartModule([{"Label": "status_home", "Color": "Green"},
+                            {"Label": "status_work", "Color": "Blue"},
+                            {"Label": "status_traveling", "Color": "Red"}],
+                           data_collector_name='datacollector')
+friendship_chart = ChartModule([{"Label": "friendship_home", "Color": "Green"},
+                                {"Label": "friendship_work", "Color": "Blue"}],
+                               data_collector_name='datacollector')
 server = ModularServer(
-    GmuSocial, [map_element], "GMU-Social", model_params
+    GmuSocial, [map_element, clock_element, status_chart, friendship_chart], "GMU-Social", model_params
 )
 server.launch()

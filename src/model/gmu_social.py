@@ -1,9 +1,11 @@
-import random
 import uuid
+from functools import partial
 
+import pandas as pd
 import geopandas as gpd
 from mesa import Model
 from mesa.time import RandomActivation
+from mesa.datacollection import DataCollector
 from mesa_geo.geoagent import AgentCreator
 from shapely.geometry import Point
 
@@ -13,6 +15,25 @@ from src.agent.gmu_building import GmuBuilding
 from src.agent.road_vertex import RoadVertex
 from src.space.gmu_campus import GmuCampus
 from src.space.vertex_space import VertexSpace
+
+
+def get_time(model) -> pd.Timedelta:
+    return pd.Timedelta(days=model.day, hours=model.hour, minutes=model.minute)
+
+
+def get_num_commuters_by_status(model, status: str) -> int:
+    commuters = [commuter for commuter in model.schedule.agents if commuter.status == status]
+    return len(commuters)
+
+
+def get_total_friendships_by_type(model, friendship_type: str) -> int:
+    if friendship_type == "home":
+        num_friendships = [commuter.num_home_friends for commuter in model.schedule.agents]
+    elif friendship_type == "work":
+        num_friendships = [commuter.num_work_friends for commuter in model.schedule.agents]
+    else:
+        raise ValueError(f"Unsupported friendship type: {friendship_type}. Must be home or work.")
+    return sum(num_friendships)
 
 
 class GmuSocial(Model):
@@ -30,6 +51,7 @@ class GmuSocial(Model):
     day: int
     hour: int
     minute: int
+    datacollector: DataCollector
 
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_file: str,
                  gmu_lakes_file: str, gmu_rivers_file: str, gmu_driveway_file: str,
@@ -67,6 +89,15 @@ class GmuSocial(Model):
         if show_lakes_and_rivers:
             self.__load_lakes_and_rivers_from_file(gmu_lakes_file, crs=crs)
             self.__load_lakes_and_rivers_from_file(gmu_rivers_file, crs=crs)
+
+        self.datacollector = DataCollector(model_reporters={
+            "time": get_time,
+            "status_home": partial(get_num_commuters_by_status, status="home"),
+            "status_work": partial(get_num_commuters_by_status, status="work"),
+            "status_traveling": partial(get_num_commuters_by_status, status="transport"),
+            "friendship_home": partial(get_total_friendships_by_type, friendship_type="home"),
+            "friendship_work": partial(get_total_friendships_by_type, friendship_type="work")
+        })
 
     def __create_commuters(self) -> None:
         for _ in range(self.num_commuters):
@@ -134,7 +165,7 @@ class GmuSocial(Model):
             building.entrance_id = nearest_vertex.unique_id
 
     def step(self) -> None:
-        # self.datacollector.collect(self)
+        self.datacollector.collect(self)
         self.__update_clock()
         self.schedule.step()
 
