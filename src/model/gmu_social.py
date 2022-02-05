@@ -1,3 +1,4 @@
+import random
 import uuid
 
 import geopandas as gpd
@@ -7,6 +8,7 @@ from mesa_geo.geoagent import AgentCreator
 from shapely.geometry import Point
 
 from src.agent.commuter import Commuter
+from src.agent.geo_agents import GmuDriveway, GmuLakeAndRiver, GmuWalkway
 from src.agent.gmu_building import GmuBuilding
 from src.agent.road_vertex import RoadVertex
 from src.space.gmu_campus import GmuCampus
@@ -16,6 +18,8 @@ from src.space.vertex_space import VertexSpace
 class GmuSocial(Model):
     running: bool
     schedule: RandomActivation
+    show_walkway: bool
+    show_lakes_and_rivers: bool
     current_id: int
     grid: GmuCampus
     vertex_grid: VertexSpace
@@ -28,16 +32,21 @@ class GmuSocial(Model):
     minute: int
 
     def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_file: str,
+                 gmu_lakes_file: str, gmu_rivers_file: str, gmu_driveway_file: str,
                  num_commuters, commuter_min_friends=5, commuter_max_friends=10, commuter_happiness_increase=0.5,
                  commuter_happiness_decrease=0.5, speed=100.0, chance_new_friend=5.0,
-                 crs="epsg:3857", show_walkway=False) -> None:
+                 crs="epsg:3857", show_walkway=False, show_lakes_and_rivers=False, show_driveway=False, seed=42) \
+            -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
         self.show_walkway = show_walkway
+        self.show_lakes_and_rivers = show_lakes_and_rivers
         self.grid = GmuCampus(crs=crs)
         self.vertex_grid = VertexSpace(crs=crs)
         self.world = gpd.read_file(world_file).set_index("Id").set_crs("epsg:2283", allow_override=True).to_crs(crs)
         self.num_commuters = num_commuters
+        self.__rd = random.Random()
+        self.__rd.seed(seed)
 
         Commuter.MIN_FRIENDS = commuter_min_friends
         Commuter.MAX_FRIENDS = commuter_max_friends
@@ -54,6 +63,12 @@ class GmuSocial(Model):
         self.day = 0
         self.hour = 5
         self.minute = 55
+
+        if show_driveway:
+            self.__load_driveway_from_file(gmu_driveway_file, crs=crs)
+        if show_lakes_and_rivers:
+            self.__load_lakes_and_rivers_from_file(gmu_lakes_file, crs=crs)
+            self.__load_lakes_and_rivers_from_file(gmu_rivers_file, crs=crs)
 
     def __create_commuters(self) -> None:
         for _ in range(self.num_commuters):
@@ -80,19 +95,36 @@ class GmuSocial(Model):
     def __load_road_vertices_from_file(self, gmu_walkway_file: str, crs: str) -> None:
         walkway_df = gpd.read_file(gmu_walkway_file).set_index("Id").set_crs("epsg:2283",
                                                                              allow_override=True).to_crs(crs)
+        if self.show_walkway:
+            walkway_creator = AgentCreator(GmuWalkway, {"model": self}, crs=crs)
+            walkway = walkway_creator.from_GeoDataFrame(walkway_df)
+            self.grid.add_agents(walkway)
+
         vertex_set = set()
         for _, row in walkway_df.iterrows():
             for point in row["geometry"].coords:
                 vertex_set.add(point)
-        vertex_dict = {uuid.uuid4().int: Point(vertex) for vertex in vertex_set}
+        vertex_dict = {uuid.UUID(int=self.__rd.getrandbits(128)).int: Point(vertex) for vertex in vertex_set}
         vertex_df = gpd.GeoDataFrame.from_dict(vertex_dict,
                                                orient="index").rename(columns={0: "geometry"}).set_crs(crs)
         vertex_creator = AgentCreator(RoadVertex, {"model": self}, crs=crs)
         vertices = vertex_creator.from_GeoDataFrame(vertex_df)
         self.vertex_grid.add_agents(vertices)
         self.vertex_grid.delete_not_connected()
-        if self.show_walkway:
-            self.grid.add_agents(self.vertex_grid.agents)
+
+    def __load_driveway_from_file(self, gmu_driveway_file: str, crs: str) -> None:
+        driveway_df = gpd.read_file(gmu_driveway_file).set_index("Id").set_crs("epsg:2283",
+                                                                               allow_override=True).to_crs(crs)
+        driveway_creator = AgentCreator(GmuDriveway, {"model": self}, crs=crs)
+        driveway = driveway_creator.from_GeoDataFrame(driveway_df)
+        self.grid.add_agents(driveway)
+
+    def __load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
+        lake_river_df = gpd.read_file(lake_river_file).set_crs("epsg:2283", allow_override=True).to_crs(crs)
+        lake_river_df.index.names = ["Id"]
+        lake_river_creator = AgentCreator(GmuLakeAndRiver, {"model": self}, crs=crs)
+        gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
+        self.grid.add_agents(gmu_lake_river)
 
     def __set_building_entrance(self) -> None:
         for building in (*self.grid.homes, *self.grid.works, *self.grid.other_buildings):

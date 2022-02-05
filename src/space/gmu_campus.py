@@ -61,7 +61,7 @@ class GmuCampus(GeoSpace):
         return self.__commuter_id_map[commuter_id]
 
     def add_commuter(self, agent: Commuter) -> None:
-        super().add_agents(agent)
+        super().add_agents([agent])
         self.__commuters_pos_map[(agent.shape.x, agent.shape.y)].add(agent)
         self.__commuter_id_map[agent.unique_id] = agent
 

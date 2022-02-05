@@ -1,4 +1,5 @@
 from typing import Dict, List, Tuple, Optional
+import pickle
 
 import numpy as np
 from mesa.space import FloatCoordinate
@@ -15,9 +16,14 @@ class VertexSpace(GeoSpace):
     __vertices_pos_map: Dict[Tuple[float, float], RoadVertex]
     __vertices_id_map: Dict[int, RoadVertex]
 
-    def __init__(self, crs: str) -> None:
+    def __init__(self, crs: str, path_cache_result: str = "outputs/path_cache_result.pkl") -> None:
         super().__init__(crs=crs)
-        self.__path_select_cache = dict()
+        self.__path_cache_result = path_cache_result
+        try:
+            with open(self.__path_cache_result, "rb") as cached_result:
+                self.__path_select_cache = pickle.load(cached_result)
+        except FileNotFoundError:
+            self.__path_select_cache = dict()
         self.__vertices_pos_map = dict()
         self.__vertices_id_map = dict()
 
@@ -68,6 +74,9 @@ class VertexSpace(GeoSpace):
     def cache_path(self, from_vertex_id: int, to_vertex_id: int, path: List[FloatCoordinate]) -> None:
         self.__path_select_cache[(from_vertex_id, to_vertex_id)] = path
         self.__path_select_cache[(to_vertex_id, from_vertex_id)] = list(reversed(path))
+        with open(self.__path_cache_result, "wb") as cached_result:
+            pickle.dump(self.__path_select_cache, cached_result)
 
     def get_cached_path(self, from_vertex_id: int, to_vertex_id: int) -> Optional[List[FloatCoordinate]]:
+        print(f"number of cached paths: {len(self.__path_select_cache)}")
         return self.__path_select_cache.get((from_vertex_id, to_vertex_id), None)

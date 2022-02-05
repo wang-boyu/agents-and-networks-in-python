@@ -1,5 +1,3 @@
-import json
-
 from mesa import Model
 from mesa_geo import GeoAgent
 from shapely.geometry import Point
@@ -38,6 +36,3 @@ class RoadVertex(GeoAgent):
 
     def advance(self) -> None:
         raise NotImplementedError
-
-    def toJSON(self):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
