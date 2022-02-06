@@ -32,10 +32,6 @@ model_params = {
     "show_driveway": True,
     "num_commuters": UserSettableParameter('slider',
                                            'Number of Commuters', value=50, min_value=10, max_value=150, step=10)
-    # "density": UserSettableParameter("slider", "Agent density", 0.6, 0.1, 1.0, 0.1),
-    # "minority_pc": UserSettableParameter(
-    #     "slider", "Fraction minority", 0.2, 0.00, 1.0, 0.05
-    # ),
 }
 
 
@@ -43,27 +39,21 @@ def gmu_social_draw(agent):
     portrayal = dict()
     portrayal["color"] = "White"
     if isinstance(agent, GmuDriveway):
-        portrayal["color"] = "Brown"
+        portrayal["color"] = "#D08004"
     elif isinstance(agent, GmuWalkway):
         portrayal["color"] = "Brown"
     elif isinstance(agent, GmuLakeAndRiver):
-        portrayal["color"] = "Blue"
+        portrayal["color"] = "#04D0CD"
     elif isinstance(agent, GmuBuilding):
-        if agent.function is None:
-            portrayal["color"] = "Grey"
-        elif agent.function == 1.0:
-            portrayal["color"] = "Blue"
-        elif agent.function == 2.0:
-            portrayal["color"] = "Green"
-        else:
-            portrayal["color"] = "Grey"
-    # elif isinstance(agent, RoadVertex):
-    #     portrayal["radius"] = "2"
-    #     portrayal["fillOpacity"] = 0.5
-    #     if agent.is_entrance:
-    #         portrayal["color"] = "Purple"
-    #     else:
-    #         portrayal["color"] = "Yellow"
+        portrayal["color"] = "Grey"
+        # if agent.function is None:
+        #     portrayal["color"] = "Grey"
+        # elif agent.function == 1.0:
+        #     portrayal["color"] = "Blue"
+        # elif agent.function == 2.0:
+        #     portrayal["color"] = "Green"
+        # else:
+        #     portrayal["color"] = "Grey"
     elif isinstance(agent, Commuter):
         if agent.status == "home":
             portrayal["color"] = "Green"
