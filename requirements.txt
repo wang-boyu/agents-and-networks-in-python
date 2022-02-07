@@ -3,6 +3,7 @@
 
 # external requirements
 mesa
+mesa-geo
 geopandas
 numpy
 pandas

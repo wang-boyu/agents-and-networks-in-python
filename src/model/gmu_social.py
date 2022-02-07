@@ -1,19 +1,20 @@
 import uuid
 from functools import partial
 
-import geopandas as gpd
-import numpy as np
 import pandas as pd
+import geopandas as gpd
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
+from mesa_geo.geoagent import AgentCreator
+from shapely.geometry import Point
 
-from src.agent.vertex import Vertex
 from src.agent.commuter import Commuter
-from src.space.vertex_grid import VertexGrid
-from src.space.commuter_grid import CommuterGrid
-from src.space.building_centroid import BuildingCentroid
-from src.space.utils import get_coord_matrix, get_affine_transform, get_rounded_coordinate
+from src.agent.geo_agents import GmuDriveway, GmuLakeAndRiver, GmuWalkway
+from src.agent.gmu_building import GmuBuilding
+from src.agent.road_vertex import RoadVertex
+from src.space.gmu_campus import GmuCampus
+from src.space.vertex_space import VertexSpace
 
 
 def get_time(model) -> pd.Timedelta:
@@ -38,14 +39,13 @@ def get_total_friendships_by_type(model, friendship_type: str) -> int:
 class GmuSocial(Model):
     running: bool
     schedule: RandomActivation
+    show_walkway: bool
+    show_lakes_and_rivers: bool
     current_id: int
-    gmu_buildings: gpd.geodataframe.GeoDataFrame
-    gmu_walkway: gpd.geodataframe.GeoDataFrame
+    grid: GmuCampus
+    vertex_grid: VertexSpace
     world_size: gpd.geodataframe.GeoDataFrame
-    grid_width: int
-    grid_height: int
-    vertex_grid: VertexGrid
-    grid: CommuterGrid
+    MAP_COORDS = [38.830417362141866, -77.3073675720387]
     got_to_destination: int  # count the total number of arrivals
     num_commuters: int
     day: int
@@ -53,18 +53,19 @@ class GmuSocial(Model):
     minute: int
     datacollector: DataCollector
 
-    def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_size_file: str,
-                 grid_width: int = 80, grid_height: int = 40,
-                 num_commuters: int = 109, commuter_min_friends: int = 5, commuter_max_friends: int = 10,
-                 commuter_happiness_increase: float = 0.5, commuter_happiness_decrease: float = 0.5,
-                 speed: float = 5.0, chance_new_friend: float = 5.0) -> None:
+    def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_file: str,
+                 gmu_lakes_file: str, gmu_rivers_file: str, gmu_driveway_file: str,
+                 num_commuters, commuter_min_friends=5, commuter_max_friends=10, commuter_happiness_increase=0.5,
+                 commuter_happiness_decrease=0.5, speed=100.0, chance_new_friend=5.0,
+                 crs="epsg:3857", show_walkway=False, show_lakes_and_rivers=False, show_driveway=False, seed=42) \
+            -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
-        self.gmu_buildings = gpd.read_file(gmu_buildings_file).set_index("Id")
-        self.gmu_walkway = gpd.read_file(gmu_walkway_file).set_index("Id")
-        self.world_size = gpd.read_file(world_size_file).set_index("Id")
-        self.grid_width = grid_width
-        self.grid_height = grid_height
+        self.show_walkway = show_walkway
+        self.show_lakes_and_rivers = show_lakes_and_rivers
+        self.grid = GmuCampus(crs=crs)
+        self.vertex_grid = VertexSpace(crs=crs)
+        self.world = gpd.read_file(world_file).set_index("Id").set_crs("epsg:2283", allow_override=True).to_crs(crs)
         self.num_commuters = num_commuters
 
         Commuter.MIN_FRIENDS = commuter_min_friends
@@ -74,10 +75,21 @@ class GmuSocial(Model):
         Commuter.SPEED = speed
         Commuter.CHANCE_NEW_FRIEND = chance_new_friend
 
-        self.vertex_grid = VertexGrid(width=grid_width, height=grid_height, torus=False)
-        self.grid = CommuterGrid(width=grid_width, height=grid_height, torus=False)
+        self.__load_buildings_from_file(gmu_buildings_file, crs=crs)
+        self.__load_road_vertices_from_file(gmu_walkway_file, crs=crs)
+        self.__set_building_entrance()
+        self.got_to_destination = 0
+        self.__create_commuters()
+        self.day = 0
+        self.hour = 5
+        self.minute = 55
 
-        self.__setup()
+        if show_driveway:
+            self.__load_driveway_from_file(gmu_driveway_file, crs=crs)
+        if show_lakes_and_rivers:
+            self.__load_lakes_and_rivers_from_file(gmu_lakes_file, crs=crs)
+            self.__load_lakes_and_rivers_from_file(gmu_rivers_file, crs=crs)
+
         self.datacollector = DataCollector(model_reporters={
             "time": get_time,
             "status_home": partial(get_num_commuters_by_status, status="home"),
@@ -87,83 +99,70 @@ class GmuSocial(Model):
             "friendship_work": partial(get_total_friendships_by_type, friendship_type="work")
         })
 
-    def __setup(self) -> None:
-        self.gmu_buildings["centroid"] = self.gmu_buildings["geometry"].centroid
-        # following the netlogo model, fill na with 0.0
-        self.gmu_buildings["function"].fillna(0.0, inplace=True)
-        self.__affine_transform()
-        self.__create_building_centroids()
-        self.__create_vertices()
-        self.__set_building_entrance()
-        self.got_to_destination = 0
-        self.__create_commuters()
-        self.day = 0
-        self.hour = 5
-        self.minute = 55
+    def __create_commuters(self) -> None:
+        for _ in range(self.num_commuters):
+            random_home = self.grid.get_random_home()
+            random_work = self.grid.get_random_work()
+            commuter = Commuter(unique_id=uuid.uuid4().int, model=self, shape=Point(random_home.centroid))
+            commuter.my_home_id = random_home.unique_id
+            commuter.my_home_pos = random_home.centroid
+            commuter.my_home_name = random_home.name
+            commuter.my_work_id = random_work.unique_id
+            commuter.my_work_pos = random_work.centroid
+            commuter.my_work_name = random_work.name
+            commuter.status = "home"
+            self.grid.add_commuter(commuter)
+            self.grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home_pos)
+            self.schedule.add(commuter)
 
-    # TODO: move to CommuterGrid and VertexGrid classes
-    def __affine_transform(self) -> None:
-        world_envelope_df = pd.DataFrame([(x, y) for x, y in zip(*self.world_size.envelope[0].exterior.coords.xy)],
-                                         columns=["x", "y"])
-        assert len(world_envelope_df) == 5
-        # first and last points are the same in the envelope polygon
-        np.testing.assert_array_equal(world_envelope_df.iloc[0].values, world_envelope_df.iloc[-1].values)
-        # remove last point which is redundant
-        world_envelope_df = world_envelope_df[:-1]
+    def __load_buildings_from_file(self, gmu_buildings_file: str, crs: str) -> None:
+        buildings_df = gpd.read_file(gmu_buildings_file).fillna(0.0).rename(columns={"NAME": "name"})
+        buildings_df = buildings_df.set_index("Id").set_crs("epsg:2283", allow_override=True).to_crs(crs)
+        buildings_df["centroid"] = [(x, y) for x, y in zip(buildings_df.centroid.x, buildings_df.centroid.y)]
+        building_creator = AgentCreator(GmuBuilding, {"model": self}, crs=crs)
+        buildings = building_creator.from_GeoDataFrame(buildings_df)
+        self.grid.add_buildings(buildings)
 
-        world_envelope_coord = get_coord_matrix(x_min=world_envelope_df["x"].min(),
-                                                x_max=world_envelope_df["x"].max(),
-                                                y_min=world_envelope_df["y"].min(),
-                                                y_max=world_envelope_df["y"].max())
-        netlogo_world_coord = get_coord_matrix(x_min=0, x_max=self.grid_width - 1, y_min=0, y_max=self.grid_height - 1)
-        affine_transform = get_affine_transform(from_coord=world_envelope_coord, to_coord=netlogo_world_coord)
-        self.gmu_buildings["centroid_transformed"] = self.gmu_buildings["centroid"].affine_transform(affine_transform)
-        self.gmu_walkway["geometry_transformed"] = self.gmu_walkway["geometry"].affine_transform(affine_transform)
+    def __load_road_vertices_from_file(self, gmu_walkway_file: str, crs: str) -> None:
+        walkway_df = gpd.read_file(gmu_walkway_file).set_index("Id").set_crs("epsg:2283",
+                                                                             allow_override=True).to_crs(crs)
+        if self.show_walkway:
+            walkway_creator = AgentCreator(GmuWalkway, {"model": self}, crs=crs)
+            walkway = walkway_creator.from_GeoDataFrame(walkway_df)
+            self.grid.add_agents(walkway)
 
-    # TODO: move to CommuterGrid class
-    def __create_building_centroids(self) -> None:
-        homes, works, other_buildings = [], [], []
-        for index, row in self.gmu_buildings.iterrows():
-            transformed_coordinate = row["centroid_transformed"].x, row["centroid_transformed"].y
-            centroid = BuildingCentroid(unique_id=index,
-                                        function=int(row["function"]),
-                                        pos=get_rounded_coordinate(transformed_coordinate))
-            if centroid.function == 0:
-                other_buildings.append(centroid)
-            elif centroid.function == 1:
-                works.append(centroid)
-            elif centroid.function == 2:
-                homes.append(centroid)
-        self.grid.other_buildings = tuple(other_buildings)
-        self.grid.works = tuple(works)
-        self.grid.homes = tuple(homes)
-
-    # TODO: move to VertexGrid class
-    def __create_vertices(self) -> None:
-        for _, row in self.gmu_walkway.iterrows():
-            for point in row["geometry_transformed"].coords:
-                rounded_point = get_rounded_coordinate(point)
-                if self.vertex_grid.is_cell_empty(rounded_point):
-                    vertex = Vertex(unique_id=uuid.uuid4().int, model=self, float_pos=point)
-                    self.vertex_grid.place_agent(vertex, rounded_point)
+        vertex_set = set()
+        for _, row in walkway_df.iterrows():
+            for point in row["geometry"].coords:
+                vertex_set.add(point)
+        vertex_dict = {uuid.uuid4().int: Point(vertex) for vertex in vertex_set}
+        vertex_df = gpd.GeoDataFrame.from_dict(vertex_dict,
+                                               orient="index").rename(columns={0: "geometry"}).set_crs(crs)
+        vertex_creator = AgentCreator(RoadVertex, {"model": self}, crs=crs)
+        vertices = vertex_creator.from_GeoDataFrame(vertex_df)
+        self.vertex_grid.add_agents(vertices)
         self.vertex_grid.delete_not_connected()
+
+    def __load_driveway_from_file(self, gmu_driveway_file: str, crs: str) -> None:
+        driveway_df = gpd.read_file(gmu_driveway_file).set_index("Id").set_crs("epsg:2283",
+                                                                               allow_override=True).to_crs(crs)
+        driveway_creator = AgentCreator(GmuDriveway, {"model": self}, crs=crs)
+        driveway = driveway_creator.from_GeoDataFrame(driveway_df)
+        self.grid.add_agents(driveway)
+
+    def __load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
+        lake_river_df = gpd.read_file(lake_river_file).set_crs("epsg:2283", allow_override=True).to_crs(crs)
+        lake_river_df.index.names = ["Id"]
+        lake_river_creator = AgentCreator(GmuLakeAndRiver, {"model": self}, crs=crs)
+        gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
+        self.grid.add_agents(gmu_lake_river)
 
     def __set_building_entrance(self) -> None:
         for building in (*self.grid.homes, *self.grid.works, *self.grid.other_buildings):
-            nearest_vertex = self.vertex_grid.get_nearest_vertex(building.pos)
+            nearest_vertex = self.vertex_grid.get_nearest_vertex(building.centroid)
             nearest_vertex.is_entrance = True
-            self.vertex_grid.update_agent(nearest_vertex, nearest_vertex.pos)
-            building.entrance = nearest_vertex
-
-    def __create_commuters(self) -> None:
-        for _ in range(self.num_commuters):
-            commuter = Commuter(unique_id=uuid.uuid4().int, model=self)
-            commuter.my_home = self.grid.get_random_home()
-            commuter.my_work = self.grid.get_random_work()
-            commuter.status = "home"
-            self.grid.place_agent(commuter, commuter.my_home.pos)
-            self.grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home.pos)
-            self.schedule.add(commuter)
+            building.entrance_pos = nearest_vertex.shape.x, nearest_vertex.shape.y
+            building.entrance_id = nearest_vertex.unique_id
 
     def step(self) -> None:
         self.datacollector.collect(self)
