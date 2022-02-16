@@ -12,5 +12,7 @@ python3 -m pip install -r requirements.txt
 ## Run model
 
 ```python
-python3 src/visualization/run.py
+python3 scripts/run.py --campus ub
 ```
+
+Change `ub` to `gmu` for a different campus map.

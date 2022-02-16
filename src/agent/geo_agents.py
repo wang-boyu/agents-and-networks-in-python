@@ -3,7 +3,7 @@ from mesa_geo import GeoAgent
 from shapely.geometry import Point
 
 
-class GmuDriveway(GeoAgent):
+class Driveway(GeoAgent):
     unique_id: int
     model: Model
     shape: Point
@@ -12,7 +12,7 @@ class GmuDriveway(GeoAgent):
         super().__init__(unique_id, model, shape)
 
 
-class GmuLakeAndRiver(GeoAgent):
+class LakeAndRiver(GeoAgent):
     unique_id: int
     model: Model
     shape: Point
@@ -21,7 +21,7 @@ class GmuLakeAndRiver(GeoAgent):
         super().__init__(unique_id, model, shape)
 
 
-class GmuWalkway(GeoAgent):
+class Walkway(GeoAgent):
     unique_id: int
     model: Model
     shape: Point

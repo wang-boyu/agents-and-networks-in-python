@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import uuid
+from random import randrange
+
 from mesa.model import Model
-from mesa.space import Coordinate, FloatCoordinate
+from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Polygon
 
 
-class GmuBuilding(GeoAgent):
+class Building(GeoAgent):
     unique_id: int  # an ID that represents the building
     model: Model
     shape: Polygon
@@ -20,12 +23,14 @@ class GmuBuilding(GeoAgent):
         super().__init__(unique_id=unique_id, model=model, shape=shape)
         self.entrance = None
         self.entrance_id = None
+        self.name = str(uuid.uuid4())
+        self.function = randrange(3)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(unique_id={self.unique_id}, name={self.name}, function={self.function}, " \
                f"centroid={self.centroid})"
 
     def __eq__(self, other):
-        if isinstance(other, GmuBuilding):
+        if isinstance(other, Building):
             return self.unique_id == other.unique_id
         return False

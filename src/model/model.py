@@ -10,10 +10,10 @@ from mesa_geo.geoagent import AgentCreator
 from shapely.geometry import Point
 
 from src.agent.commuter import Commuter
-from src.agent.geo_agents import GmuDriveway, GmuLakeAndRiver, GmuWalkway
-from src.agent.gmu_building import GmuBuilding
+from src.agent.geo_agents import Driveway, LakeAndRiver, Walkway
+from src.agent.building import Building
 from src.agent.road_vertex import RoadVertex
-from src.space.gmu_campus import GmuCampus
+from src.space.campus import Campus
 from src.space.vertex_space import VertexSpace
 
 
@@ -36,16 +36,15 @@ def get_total_friendships_by_type(model, friendship_type: str) -> int:
     return sum(num_friendships)
 
 
-class GmuSocial(Model):
+class AgentsAndNetworks(Model):
     running: bool
     schedule: RandomActivation
     show_walkway: bool
     show_lakes_and_rivers: bool
     current_id: int
-    grid: GmuCampus
+    grid: Campus
     vertex_grid: VertexSpace
     world_size: gpd.geodataframe.GeoDataFrame
-    MAP_COORDS = [38.830417362141866, -77.3073675720387]
     got_to_destination: int  # count the total number of arrivals
     num_commuters: int
     day: int
@@ -53,19 +52,17 @@ class GmuSocial(Model):
     minute: int
     datacollector: DataCollector
 
-    def __init__(self, gmu_buildings_file: str, gmu_walkway_file: str, world_file: str,
-                 gmu_lakes_file: str, gmu_rivers_file: str, gmu_driveway_file: str,
-                 num_commuters, commuter_min_friends=5, commuter_max_friends=10, commuter_happiness_increase=0.5,
-                 commuter_happiness_decrease=0.5, speed=100.0, chance_new_friend=5.0,
-                 crs="epsg:3857", show_walkway=False, show_lakes_and_rivers=False, show_driveway=False, seed=42) \
+    def __init__(self, campus: str, buildings_file: str, walkway_file: str, lakes_file: str, rivers_file: str,
+                 driveway_file: str, num_commuters, commuter_min_friends=5, commuter_max_friends=10,
+                 commuter_happiness_increase=0.5, commuter_happiness_decrease=0.5, speed=200.0, chance_new_friend=5.0,
+                 crs="epsg:3857", show_walkway=False, show_lakes_and_rivers=False, show_driveway=False) \
             -> None:
         super().__init__()
         self.schedule = RandomActivation(self)
         self.show_walkway = show_walkway
         self.show_lakes_and_rivers = show_lakes_and_rivers
-        self.grid = GmuCampus(crs=crs)
-        self.vertex_grid = VertexSpace(crs=crs)
-        self.world = gpd.read_file(world_file).set_index("Id").set_crs("epsg:2283", allow_override=True).to_crs(crs)
+        self.grid = Campus(crs=crs)
+        self.vertex_grid = VertexSpace(crs=crs, campus=campus)
         self.num_commuters = num_commuters
 
         Commuter.MIN_FRIENDS = commuter_min_friends
@@ -75,8 +72,8 @@ class GmuSocial(Model):
         Commuter.SPEED = speed
         Commuter.CHANCE_NEW_FRIEND = chance_new_friend
 
-        self.__load_buildings_from_file(gmu_buildings_file, crs=crs)
-        self.__load_road_vertices_from_file(gmu_walkway_file, crs=crs)
+        self.__load_buildings_from_file(buildings_file, crs=crs)
+        self.__load_road_vertices_from_file(walkway_file, crs=crs)
         self.__set_building_entrance()
         self.got_to_destination = 0
         self.__create_commuters()
@@ -85,10 +82,10 @@ class GmuSocial(Model):
         self.minute = 55
 
         if show_driveway:
-            self.__load_driveway_from_file(gmu_driveway_file, crs=crs)
+            self.__load_driveway_from_file(driveway_file, crs=crs)
         if show_lakes_and_rivers:
-            self.__load_lakes_and_rivers_from_file(gmu_lakes_file, crs=crs)
-            self.__load_lakes_and_rivers_from_file(gmu_rivers_file, crs=crs)
+            self.__load_lakes_and_rivers_from_file(lakes_file, crs=crs)
+            self.__load_lakes_and_rivers_from_file(rivers_file, crs=crs)
 
         self.datacollector = DataCollector(model_reporters={
             "time": get_time,
@@ -115,19 +112,21 @@ class GmuSocial(Model):
             self.grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home_pos)
             self.schedule.add(commuter)
 
-    def __load_buildings_from_file(self, gmu_buildings_file: str, crs: str) -> None:
-        buildings_df = gpd.read_file(gmu_buildings_file).fillna(0.0).rename(columns={"NAME": "name"})
-        buildings_df = buildings_df.set_index("Id").set_crs("epsg:2283", allow_override=True).to_crs(crs)
+    def __load_buildings_from_file(self, buildings_file: str, crs: str) -> None:
+        buildings_df = gpd.read_file(buildings_file)
+        buildings_df.drop("Id", axis=1, inplace=True)
+        buildings_df.index.name = "unique_id"
+        buildings_df = buildings_df.set_crs("epsg:4326", allow_override=True).to_crs(crs)
         buildings_df["centroid"] = [(x, y) for x, y in zip(buildings_df.centroid.x, buildings_df.centroid.y)]
-        building_creator = AgentCreator(GmuBuilding, {"model": self}, crs=crs)
+        building_creator = AgentCreator(Building, {"model": self}, crs=crs)
         buildings = building_creator.from_GeoDataFrame(buildings_df)
         self.grid.add_buildings(buildings)
 
-    def __load_road_vertices_from_file(self, gmu_walkway_file: str, crs: str) -> None:
-        walkway_df = gpd.read_file(gmu_walkway_file).set_index("Id").set_crs("epsg:2283",
-                                                                             allow_override=True).to_crs(crs)
+    def __load_road_vertices_from_file(self, walkway_file: str, crs: str) -> None:
+        walkway_df = gpd.read_file(walkway_file).set_index("Id").set_crs("epsg:4326",
+                                                                         allow_override=True).to_crs(crs)
         if self.show_walkway:
-            walkway_creator = AgentCreator(GmuWalkway, {"model": self}, crs=crs)
+            walkway_creator = AgentCreator(Walkway, {"model": self}, crs=crs)
             walkway = walkway_creator.from_GeoDataFrame(walkway_df)
             self.grid.add_agents(walkway)
 
@@ -143,17 +142,17 @@ class GmuSocial(Model):
         self.vertex_grid.add_agents(vertices)
         self.vertex_grid.delete_not_connected()
 
-    def __load_driveway_from_file(self, gmu_driveway_file: str, crs: str) -> None:
-        driveway_df = gpd.read_file(gmu_driveway_file).set_index("Id").set_crs("epsg:2283",
-                                                                               allow_override=True).to_crs(crs)
-        driveway_creator = AgentCreator(GmuDriveway, {"model": self}, crs=crs)
+    def __load_driveway_from_file(self, driveway_file: str, crs: str) -> None:
+        driveway_df = gpd.read_file(driveway_file).set_index("Id").set_crs("epsg:4326",
+                                                                           allow_override=True).to_crs(crs)
+        driveway_creator = AgentCreator(Driveway, {"model": self}, crs=crs)
         driveway = driveway_creator.from_GeoDataFrame(driveway_df)
         self.grid.add_agents(driveway)
 
     def __load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
-        lake_river_df = gpd.read_file(lake_river_file).set_crs("epsg:2283", allow_override=True).to_crs(crs)
+        lake_river_df = gpd.read_file(lake_river_file).set_crs("epsg:4326", allow_override=True).to_crs(crs)
         lake_river_df.index.names = ["Id"]
-        lake_river_creator = AgentCreator(GmuLakeAndRiver, {"model": self}, crs=crs)
+        lake_river_creator = AgentCreator(LakeAndRiver, {"model": self}, crs=crs)
         gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
         self.grid.add_agents(gmu_lake_river)
 

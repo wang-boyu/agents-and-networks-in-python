@@ -7,15 +7,15 @@ from mesa_geo.geospace import GeoSpace
 from shapely.geometry import Point
 
 from src.agent.commuter import Commuter
-from src.agent.gmu_building import GmuBuilding
+from src.agent.building import Building
 
 
-class GmuCampus(GeoSpace):
-    homes: Tuple[GmuBuilding]
-    works: Tuple[GmuBuilding]
-    other_buildings: Tuple[GmuBuilding]
+class Campus(GeoSpace):
+    homes: Tuple[Building]
+    works: Tuple[Building]
+    other_buildings: Tuple[Building]
     home_counter: DefaultDict[FloatCoordinate, int]
-    __buildings: Dict[int, GmuBuilding]
+    __buildings: Dict[int, Building]
     __commuters_pos_map: DefaultDict[FloatCoordinate, Set[Commuter]]
     __commuter_id_map: Dict[int, Commuter]
 
@@ -29,20 +29,20 @@ class GmuCampus(GeoSpace):
         self.__commuters_pos_map = defaultdict(set)
         self.__commuter_id_map = dict()
 
-    def get_random_home(self) -> GmuBuilding:
+    def get_random_home(self) -> Building:
         return random.choice(self.homes)
 
-    def get_random_work(self) -> GmuBuilding:
+    def get_random_work(self) -> Building:
         return random.choice(self.works)
 
-    def get_building_by_id(self, unique_id: int) -> GmuBuilding:
+    def get_building_by_id(self, unique_id: int) -> Building:
         return self.__buildings[unique_id]
 
     def add_buildings(self, agents) -> None:
         super().add_agents(agents)
         homes, works, other_buildings = [], [], []
         for agent in agents:
-            if isinstance(agent, GmuBuilding):
+            if isinstance(agent, Building):
                 self.__buildings[agent.unique_id] = agent
                 if agent.function == 0.0:
                     other_buildings.append(agent)
