@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import random
 from typing import List
 
@@ -9,8 +8,6 @@ from mesa import Model
 from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
 from shapely.geometry import Point
-
-from src.logger import logger
 
 
 class Commuter(GeoAgent):
@@ -137,25 +134,10 @@ class Commuter(GeoAgent):
 
     def __move(self) -> None:
         if self.status == "transport":
-            if self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), self.destination_entrance_pos) > 5:
+            if self.step_in_path < len(self.my_path):
                 next_position = self.my_path[self.step_in_path]
-                dist_1 = self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), next_position)
-                remain = self.SPEED
-                while remain >= dist_1 and self.step_in_path < len(self.my_path):
-                    self.model.grid.move_commuter(self, next_position)
-                    self.step_in_path += 1
-                    remain -= dist_1
-                    if self.step_in_path < len(self.my_path):
-                        next_position = self.my_path[self.step_in_path]
-                    else:
-                        remain = 0.0
-                        self.model.grid.move_commuter(self, self.destination_entrance_pos)
-                        if self.destination_id == self.my_work_id:
-                            self.status = "work"
-                        elif self.destination_id == self.my_home_id:
-                            self.status = "home"
-                        self.model.got_to_destination += 1
-                    dist_1 = self.model.vertex_grid.get_distance((self.shape.x, self.shape.y), next_position)
+                self.model.grid.move_commuter(self, next_position)
+                self.step_in_path += 1
             else:
                 self.model.grid.move_commuter(self, self.destination_entrance_pos)
                 if self.destination_id == self.my_work_id:
