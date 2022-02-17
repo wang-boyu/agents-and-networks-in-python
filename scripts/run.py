@@ -50,9 +50,9 @@ if __name__ == "__main__":
         "gmu": {"view": [38.830417362141866, -77.3073675720387],
                 "zoom": 16}
     }
-    map_element = MapModule(agent_draw, **map_params[args.campus], map_height=500, map_width=500)
+    map_element = MapModule(agent_draw, **map_params[args.campus], map_height=600, map_width=600)
     server = ModularServer(
-        AgentsAndNetworks, [map_element, clock_element, status_chart, friendship_chart], "Agents-and-Networks",
+        AgentsAndNetworks, [map_element, clock_element, status_chart, friendship_chart], "Agents and Networks",
         model_params
     )
     server.launch()
