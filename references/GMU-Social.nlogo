@@ -73,23 +73,23 @@ to setup
   reset-ticks
 
   ;;loading GIS files here
-  set gmu-buildings gis:load-dataset "../data/raw/campus/Mason_bld.shp"
-  set gmu-walkway gis:load-dataset "../data/raw/campus/Mason_walkway_line.shp"
-  set world-size gis:load-dataset "../data/raw/campus/world.shp"
+  set gmu-buildings gis:load-dataset "../data/raw/gmu/Mason_bld.shp"
+  set gmu-walkway gis:load-dataset "../data/raw/gmu/Mason_walkway_line.shp"
+  set world-size gis:load-dataset "../data/raw/gmu/world.shp"
   gis:set-world-envelope gis:envelope-of world-size
   ;;gis:set-world-envelope gis:envelope-of gmu-walkway
 
   gis:set-drawing-color 5 gis:fill gmu-buildings 1.0
 
   if show_lakes? [
-    set gmu-lakes gis:load-dataset "../data/raw/campus/hydrop.shp"
-    set gmu-rivers gis:load-dataset "../data/raw/campus/hydrol.shp"
+    set gmu-lakes gis:load-dataset "../data/raw/gmu/hydrop.shp"
+    set gmu-rivers gis:load-dataset "../data/raw/gmu/hydrol.shp"
     gis:set-drawing-color 87 gis:fill gmu-lakes 1.0
     gis:set-drawing-color 87 gis:draw gmu-rivers 0.5
   ]
 
   if show_driveway? [
-    set gmu-drive gis:load-dataset "../data/raw/campus/Mason_Rds.shp"
+    set gmu-drive gis:load-dataset "../data/raw/gmu/Mason_Rds.shp"
     gis:set-drawing-color 36 gis:fill gmu-drive 1.0
   ]
 

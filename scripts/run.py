@@ -24,12 +24,15 @@ if __name__ == "__main__":
     else:
         raise ValueError("Invalid campus name. Choose from ub or gmu.")
 
-    map_coord = {
-        "ub": [43.0022471679366, -78.785149],
-        "gmu": [38.830417362141866, -77.3073675720387]
+    campus_params = {
+        "ub": {"data_crs": "epsg:4326",
+               "commuter_speed": 150},
+        "gmu": {"data_crs": "epsg:2283",
+                "commuter_speed": 100}
     }
     model_params = {
         "campus": args.campus,
+        **campus_params[args.campus],
         "buildings_file": f"data/raw/{args.campus}/{data_file_prefix}_bld.shp",
         "walkway_file": f"data/raw/{args.campus}/{data_file_prefix}_walkway_line.shp",
         "lakes_file": f"data/raw/{args.campus}/hydrop.shp",
@@ -41,7 +44,13 @@ if __name__ == "__main__":
         "num_commuters": UserSettableParameter('slider',
                                                'Number of Commuters', value=50, min_value=10, max_value=150, step=10)
     }
-    map_element = MapModule(agent_draw, map_coord[args.campus], zoom=16, map_height=500, map_width=500)
+    map_params = {
+        "ub": {"view": [43.0022471679366, -78.785149],
+               "zoom": 14},
+        "gmu": {"view": [38.830417362141866, -77.3073675720387],
+                "zoom": 16}
+    }
+    map_element = MapModule(agent_draw, **map_params[args.campus], map_height=500, map_width=500)
     server = ModularServer(
         AgentsAndNetworks, [map_element, clock_element, status_chart, friendship_chart], "Agents-and-Networks",
         model_params

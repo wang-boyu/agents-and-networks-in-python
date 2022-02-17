@@ -219,10 +219,11 @@ class Commuter(GeoAgent):
                 # previous_num_undone_vertices = num_undone_vertices
                 for vertex in self.model.vertex_grid.agents:
                     if vertex is not None and vertex.dist < 99999 and vertex.done == 0:
-                        neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=150)
+                        neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=self.SPEED)
                         num_neighbors = len(list(neighbors))
                         # print(f"number of neighbors found: {num_neighbors}")
-                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=150):
+                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex,
+                                                                                             distance=self.SPEED):
                             if vertex != neighbor:
                                 distance = self.model.vertex_grid.distance(vertex, neighbor)
                                 dist_0 = distance + vertex.dist

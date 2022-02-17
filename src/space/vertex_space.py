@@ -12,8 +12,8 @@ from src.agent.road_vertex import RoadVertex
 
 class VertexSpace(GeoSpace):
     __tree: KDTree
-    __path_select_cache: Dict[Tuple[FloatCoordinate, FloatCoordinate], List[FloatCoordinate]]
-    __vertices_pos_map: Dict[Tuple[str, str], RoadVertex]
+    __path_select_cache: Dict[Tuple[int, int], List[FloatCoordinate]]
+    __vertices_pos_map: Dict[FloatCoordinate, RoadVertex]
     __vertices_id_map: Dict[int, RoadVertex]
 
     def __init__(self, crs: str, campus: str) -> None:
@@ -71,12 +71,12 @@ class VertexSpace(GeoSpace):
         vertices_pos = [agent.shape.coords[0] for agent in self.agents]
         self.__tree = KDTree(vertices_pos)
 
-    def cache_path(self, from_building: str, to_building: str, path: List[FloatCoordinate]) -> None:
+    def cache_path(self, from_building: int, to_building: int, path: List[FloatCoordinate]) -> None:
         self.__path_select_cache[(from_building, to_building)] = path
         self.__path_select_cache[(to_building, from_building)] = list(reversed(path))
         with open(self.__path_cache_result, "wb") as cached_result:
             pickle.dump(self.__path_select_cache, cached_result)
 
-    def get_cached_path(self, from_building: str, to_building: str) -> Optional[List[FloatCoordinate]]:
+    def get_cached_path(self, from_building: int, to_building: int) -> Optional[List[FloatCoordinate]]:
         print(f"length of cached path: {len(self.__path_select_cache)}")
         return self.__path_select_cache.get((from_building, to_building), None)
