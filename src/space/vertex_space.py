@@ -12,13 +12,13 @@ from src.agent.road_vertex import RoadVertex
 
 class VertexSpace(GeoSpace):
     __tree: KDTree
-    __path_select_cache: Dict[Tuple[FloatCoordinate, FloatCoordinate], List[FloatCoordinate]]
-    __vertices_pos_map: Dict[Tuple[str, str], RoadVertex]
+    __path_select_cache: Dict[Tuple[int, int], List[FloatCoordinate]]
+    __vertices_pos_map: Dict[FloatCoordinate, RoadVertex]
     __vertices_id_map: Dict[int, RoadVertex]
 
-    def __init__(self, crs: str, path_cache_result: str = "outputs/path_cache_result.pkl") -> None:
+    def __init__(self, crs: str, campus: str) -> None:
         super().__init__(crs=crs)
-        self.__path_cache_result = path_cache_result
+        self.__path_cache_result = f"outputs/{campus}_path_cache_result.pkl"
         try:
             with open(self.__path_cache_result, "rb") as cached_result:
                 self.__path_select_cache = pickle.load(cached_result)
@@ -61,7 +61,7 @@ class VertexSpace(GeoSpace):
     def delete_not_connected(self) -> None:
         not_connected_agents = []
         for agent in self.agents:
-            if len(list(self.get_neighbors_within_distance(agent, distance=100.0))) < 2:
+            if len(list(self.get_neighbors_within_distance(agent, distance=150.0))) < 2:
                 not_connected_agents.append(agent)
         for agent in not_connected_agents:
             self.__remove_agent(agent)
@@ -71,11 +71,12 @@ class VertexSpace(GeoSpace):
         vertices_pos = [agent.shape.coords[0] for agent in self.agents]
         self.__tree = KDTree(vertices_pos)
 
-    def cache_path(self, from_building: str, to_building: str, path: List[FloatCoordinate]) -> None:
+    def cache_path(self, from_building: int, to_building: int, path: List[FloatCoordinate]) -> None:
         self.__path_select_cache[(from_building, to_building)] = path
         self.__path_select_cache[(to_building, from_building)] = list(reversed(path))
         with open(self.__path_cache_result, "wb") as cached_result:
             pickle.dump(self.__path_select_cache, cached_result)
 
-    def get_cached_path(self, from_building: str, to_building: str) -> Optional[List[FloatCoordinate]]:
+    def get_cached_path(self, from_building: int, to_building: int) -> Optional[List[FloatCoordinate]]:
+        print(f"length of cached path: {len(self.__path_select_cache)}")
         return self.__path_select_cache.get((from_building, to_building), None)
