@@ -179,10 +179,8 @@ class Commuter(GeoAgent):
         if (cached_path := self.model.vertex_grid.get_cached_path(from_building=self.my_node_name,
                                                                   to_building=self.destination_name)) \
                 is not None:
-            print(f"cache hit.")
             self.my_path = cached_path
         else:
-            print(f"cache miss.")
             self.my_path = []
             undone_vertices_id = set()
             for vertex in self.model.vertex_grid.agents:
