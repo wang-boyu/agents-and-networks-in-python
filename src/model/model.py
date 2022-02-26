@@ -103,15 +103,10 @@ class AgentsAndNetworks(Model):
             random_home = self.grid.get_random_home()
             random_work = self.grid.get_random_work()
             commuter = Commuter(unique_id=uuid.uuid4().int, model=self, shape=Point(random_home.centroid))
-            commuter.my_home_id = random_home.unique_id
-            commuter.my_home_pos = random_home.centroid
-            commuter.my_home_name = random_home.name
-            commuter.my_work_id = random_work.unique_id
-            commuter.my_work_pos = random_work.centroid
-            commuter.my_work_name = random_work.name
+            commuter.set_home(random_home)
+            commuter.set_work(random_work)
             commuter.status = "home"
             self.grid.add_commuter(commuter)
-            self.grid.update_home_counter(old_home_pos=None, new_home_pos=commuter.my_home_pos)
             self.schedule.add(commuter)
 
     def __load_buildings_from_file(self, buildings_file: str, crs: str, campus: str) -> None:

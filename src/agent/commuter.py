@@ -9,15 +9,18 @@ from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
 from shapely.geometry import Point
 
+from src.agent.building import Building
+
 
 class Commuter(GeoAgent):
     unique_id: int  # commuter_id, used to link commuters and nodes
     model: Model
     shape: Point
-    my_node_entrance_id: int  # where he begins his trip
-    my_node_pos: FloatCoordinate
-    my_node_id: int
-    my_node_name: str
+    origin_id: int  # where he begins his trip
+    origin_pos: FloatCoordinate
+    origin_name: str
+    origin_entrance_id: int
+    origin_entrance_pos: FloatCoordinate
     destination_id: int  # the destination he wants to arrive at
     destination_pos: FloatCoordinate
     destination_name: str
@@ -25,7 +28,6 @@ class Commuter(GeoAgent):
     destination_entrance_pos: FloatCoordinate
     my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
-    # last_stop: RoadVertex  # last destination
     my_home_id: int
     my_home_pos: FloatCoordinate  # home location
     my_home_name: str
@@ -50,7 +52,7 @@ class Commuter(GeoAgent):
 
     def __init__(self, unique_id, model, shape) -> None:
         super().__init__(unique_id, model, shape)
-        # self.last_stop = None
+        self.my_home_pos = None
         self.start_time_h = round(np.random.normal(6.5, 1))
         while self.start_time_h < 6 or self.start_time_h > 9:
             self.start_time_h = round(np.random.normal(6.5, 1))
@@ -73,6 +75,21 @@ class Commuter(GeoAgent):
     @property
     def num_work_friends(self) -> int:
         return len(self.work_friends_id)
+
+    def set_home(self, new_home: Building) -> None:
+        old_home_pos = self.my_home_pos
+        self.my_home_id = new_home.unique_id
+        self.my_home_pos = new_home.centroid
+        self.my_home_name = new_home.name
+        self.happiness_home = 100.0
+        self.model.grid.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home_pos)
+
+    def set_work(self, new_work: Building) -> None:
+        self.my_work_id = new_work.unique_id
+        self.my_work_pos = new_work.centroid
+        self.my_work_name = new_work.name
+        self.work_friends_id = []
+        self.happiness_work = 100.0
 
     def step(self) -> None:
         self.__check_happiness()
@@ -105,32 +122,32 @@ class Commuter(GeoAgent):
     def __prepare_to_move(self) -> None:
         # start going to work
         if self.status == "home" and self.model.hour == self.start_time_h and self.model.minute == self.start_time_m:
-            self.my_node_entrance_id = self.model.grid.get_building_by_id(self.my_home_id).entrance_id
-            self.my_node_pos = self.model.grid.get_building_by_id(self.my_home_id).entrance_pos
-            self.my_node_id = self.model.grid.get_building_by_id(self.my_home_id).unique_id
-            self.my_node_name = self.model.grid.get_building_by_id(self.my_home_id).name
-            self.model.grid.move_commuter(self, pos=self.my_node_pos)
-            self.destination_id = self.my_work_id
-            self.destination_pos = self.my_work_pos
-            self.destination_name = self.my_work_name
-            self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
-            self.destination_entrance_pos = self.model.grid.get_building_by_id(self.destination_id).entrance_pos
+            self.__set_origin(self.model.grid.get_building_by_id(self.my_home_id))
+            self.model.grid.move_commuter(self, pos=self.origin_pos)
+            self.__set_destination(self.model.grid.get_building_by_id(self.my_work_id))
             self.__path_select()
             self.status = "transport"
         # start going home
         elif self.status == "work" and self.model.hour == self.end_time_h and self.model.minute == self.end_time_m:
-            self.my_node_entrance_id = self.model.grid.get_building_by_id(self.my_work_id).entrance_id
-            self.my_node_pos = self.model.grid.get_building_by_id(self.my_work_id).entrance_pos
-            self.my_node_id = self.model.grid.get_building_by_id(self.my_work_id).unique_id
-            self.my_node_name = self.model.grid.get_building_by_id(self.my_work_id).name
-            self.model.grid.move_commuter(self, pos=self.my_node_pos)
-            self.destination_id = self.my_home_id
-            self.destination_pos = self.my_home_pos
-            self.destination_name = self.my_home_name
-            self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
-            self.destination_entrance_pos = self.model.grid.get_building_by_id(self.destination_id).entrance_pos
+            self.__set_origin(self.model.grid.get_building_by_id(self.my_work_id))
+            self.model.grid.move_commuter(self, pos=self.origin_pos)
+            self.__set_destination(self.model.grid.get_building_by_id(self.my_home_id))
             self.__path_select()
             self.status = "transport"
+
+    def __set_origin(self, origin: Building) -> None:
+        self.origin_id = origin.unique_id
+        self.origin_pos = origin.centroid
+        self.origin_name = origin.name
+        self.origin_entrance_id = origin.entrance_id
+        self.origin_entrance_pos = origin.entrance_pos
+
+    def __set_destination(self, destination: Building) -> None:
+        self.destination_id = destination.unique_id
+        self.destination_pos = destination.centroid
+        self.destination_name = destination.name
+        self.destination_entrance_id = destination.entrance_id
+        self.destination_entrance_pos = destination.entrance_pos
 
     def __move(self) -> None:
         if self.status == "transport":
@@ -151,16 +168,11 @@ class Commuter(GeoAgent):
 
     def __relocate_home(self) -> None:
         old_home_id = self.my_home_id
-        old_home_pos = self.my_home_pos
         while True:
             new_home = self.model.grid.get_random_home()
             if new_home.unique_id != old_home_id:
                 break
-        self.my_home_id = new_home.unique_id
-        self.my_home_pos = new_home.centroid
-        self.my_node_name = new_home.name
-        self.happiness_home = 100.0
-        self.model.grid.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home_pos)
+        self.set_home(new_home)
 
     def __relocate_work(self) -> None:
         old_work_id = self.my_work_id
@@ -168,16 +180,12 @@ class Commuter(GeoAgent):
             new_work = self.model.grid.get_random_work()
             if new_work.unique_id != old_work_id:
                 break
-        self.my_work_id = new_work.unique_id
-        self.my_work_pos = new_work.centroid
-        self.my_work_name = new_work.name
-        self.work_friends_id = []
-        self.happiness_work = 100.0
+        self.set_work(new_work)
 
     def __path_select(self) -> None:
         self.step_in_path = 0
-        if (cached_path := self.model.vertex_grid.get_cached_path(from_building=self.my_node_name,
-                                                                  to_building=self.destination_name)) \
+        if (cached_path := self.model.vertex_grid.get_cached_path(from_building=self.origin_id,
+                                                                  to_building=self.destination_id)) \
                 is not None:
             self.my_path = cached_path
         else:
@@ -189,19 +197,12 @@ class Commuter(GeoAgent):
                     vertex.done = 0
                     vertex.last_node_id = None
                     undone_vertices_id.add(vertex.unique_id)
-            self.model.vertex_grid.get_vertex_by_id(self.my_node_entrance_id).dist = 0
+            self.model.vertex_grid.get_vertex_by_id(self.origin_entrance_id).dist = 0
 
-            # previous_num_undone_vertices = 0
             while undone_vertices_id:
-                # num_undone_vertices = len(undone_vertices_id)
-                # if num_undone_vertices == previous_num_undone_vertices:
-                #     breakpoint()
-                # previous_num_undone_vertices = num_undone_vertices
                 for vertex in self.model.vertex_grid.agents:
                     if vertex is not None and vertex.dist < 99999 and vertex.done == 0:
                         neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=self.SPEED)
-                        num_neighbors = len(list(neighbors))
-                        # print(f"number of neighbors found: {num_neighbors}")
                         for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex,
                                                                                              distance=self.SPEED):
                             if vertex != neighbor:
@@ -216,12 +217,12 @@ class Commuter(GeoAgent):
                         undone_vertices_id.remove(vertex.unique_id)
             x = self.destination_entrance_id
 
-            while x != self.my_node_entrance_id:
+            while x != self.origin_entrance_id:
                 x_node = self.model.vertex_grid.get_vertex_by_id(x)
                 self.my_path.append((x_node.shape.x, x_node.shape.y))
                 x = x_node.last_node_id
             self.my_path.reverse()
-            self.model.vertex_grid.cache_path(from_building=self.my_node_name, to_building=self.destination_name,
+            self.model.vertex_grid.cache_path(from_building=self.origin_id, to_building=self.destination_id,
                                               path=self.my_path)
 
     def __make_friends_at_work(self) -> None:
