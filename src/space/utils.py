@@ -1,6 +1,8 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
+import geopandas as gpd
+from shapely.geometry import LineString
 from mesa.space import FloatCoordinate, Coordinate
 
 
@@ -28,3 +30,11 @@ def get_affine_transform(from_coord: np.ndarray, to_coord: np.ndarray) -> \
 
 def get_rounded_coordinate(float_coordinate: FloatCoordinate) -> Coordinate:
     return round(float_coordinate[0]), round(float_coordinate[1])
+
+
+def segmented(lines: gpd.GeoSeries) -> gpd.GeoSeries:
+    def _segmented(linestring: LineString) -> List[LineString]:
+        return [LineString((start_node, end_node)) for start_node, end_node in
+                zip(linestring.coords[:-1], linestring.coords[1:]) if start_node != end_node]
+
+    return gpd.GeoSeries([segment for line in lines for segment in _segmented(line)])

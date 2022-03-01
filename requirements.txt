@@ -17,3 +17,4 @@ jupyter_nbextensions_configurator
 autopep8
 tqdm
 momepy
+networkx

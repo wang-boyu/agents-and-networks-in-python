@@ -12,9 +12,8 @@ from shapely.geometry import Point
 from src.agent.commuter import Commuter
 from src.agent.geo_agents import Driveway, LakeAndRiver, Walkway
 from src.agent.building import Building
-from src.agent.road_vertex import RoadVertex
 from src.space.campus import Campus
-from src.space.vertex_space import VertexSpace
+from src.space.road_network import CampusWalkway
 
 
 def get_time(model) -> pd.Timedelta:
@@ -43,7 +42,7 @@ class AgentsAndNetworks(Model):
     show_lakes_and_rivers: bool
     current_id: int
     grid: Campus
-    vertex_grid: VertexSpace
+    walkway: CampusWalkway
     world_size: gpd.geodataframe.GeoDataFrame
     got_to_destination: int  # count the total number of arrivals
     num_commuters: int
@@ -64,7 +63,6 @@ class AgentsAndNetworks(Model):
         self.show_lakes_and_rivers = show_lakes_and_rivers
         self.data_crs = data_crs
         self.grid = Campus(crs=model_crs)
-        self.vertex_grid = VertexSpace(crs=model_crs, campus=campus)
         self.num_commuters = num_commuters
 
         Commuter.MIN_FRIENDS = commuter_min_friends
@@ -75,7 +73,7 @@ class AgentsAndNetworks(Model):
         Commuter.CHANCE_NEW_FRIEND = chance_new_friend
 
         self.__load_buildings_from_file(buildings_file, crs=model_crs, campus=campus)
-        self.__load_road_vertices_from_file(walkway_file, crs=model_crs)
+        self.__load_road_vertices_from_file(walkway_file, crs=model_crs, campus=campus)
         self.__set_building_entrance()
         self.got_to_destination = 0
         self.__create_commuters()
@@ -124,25 +122,14 @@ class AgentsAndNetworks(Model):
         buildings = building_creator.from_GeoDataFrame(buildings_df)
         self.grid.add_buildings(buildings)
 
-    def __load_road_vertices_from_file(self, walkway_file: str, crs: str) -> None:
+    def __load_road_vertices_from_file(self, walkway_file: str, crs: str, campus: str) -> None:
         walkway_df = gpd.read_file(walkway_file).set_index("Id").set_crs(self.data_crs,
                                                                          allow_override=True).to_crs(crs)
+        self.walkway = CampusWalkway(campus=campus, lines=walkway_df["geometry"])
         if self.show_walkway:
             walkway_creator = AgentCreator(Walkway, {"model": self}, crs=crs)
             walkway = walkway_creator.from_GeoDataFrame(walkway_df)
             self.grid.add_agents(walkway)
-
-        vertex_set = set()
-        for _, row in walkway_df.iterrows():
-            for point in row["geometry"].coords:
-                vertex_set.add(point)
-        vertex_dict = {uuid.uuid4().int: Point(vertex) for vertex in vertex_set}
-        vertex_df = gpd.GeoDataFrame.from_dict(vertex_dict,
-                                               orient="index").rename(columns={0: "geometry"}).set_crs(crs)
-        vertex_creator = AgentCreator(RoadVertex, {"model": self}, crs=crs)
-        vertices = vertex_creator.from_GeoDataFrame(vertex_df)
-        self.vertex_grid.add_agents(vertices)
-        self.vertex_grid.delete_not_connected()
 
     def __load_driveway_from_file(self, driveway_file: str, crs: str) -> None:
         driveway_df = gpd.read_file(driveway_file).set_index("Id").set_crs(self.data_crs,
@@ -160,10 +147,7 @@ class AgentsAndNetworks(Model):
 
     def __set_building_entrance(self) -> None:
         for building in (*self.grid.homes, *self.grid.works, *self.grid.other_buildings):
-            nearest_vertex = self.vertex_grid.get_nearest_vertex(building.centroid)
-            nearest_vertex.is_entrance = True
-            building.entrance_pos = nearest_vertex.shape.x, nearest_vertex.shape.y
-            building.entrance_id = nearest_vertex.unique_id
+            building.entrance_pos = self.walkway.get_nearest_node_pos(building.centroid)
 
     def step(self) -> None:
         self.datacollector.collect(self)

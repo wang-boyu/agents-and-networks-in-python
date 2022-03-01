@@ -19,12 +19,10 @@ class Commuter(GeoAgent):
     origin_id: int  # where he begins his trip
     origin_pos: FloatCoordinate
     origin_name: str
-    origin_entrance_id: int
     origin_entrance_pos: FloatCoordinate
     destination_id: int  # the destination he wants to arrive at
     destination_pos: FloatCoordinate
     destination_name: str
-    destination_entrance_id: int
     destination_entrance_pos: FloatCoordinate
     my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
@@ -139,14 +137,12 @@ class Commuter(GeoAgent):
         self.origin_id = origin.unique_id
         self.origin_pos = origin.centroid
         self.origin_name = origin.name
-        self.origin_entrance_id = origin.entrance_id
         self.origin_entrance_pos = origin.entrance_pos
 
     def __set_destination(self, destination: Building) -> None:
         self.destination_id = destination.unique_id
         self.destination_pos = destination.centroid
         self.destination_name = destination.name
-        self.destination_entrance_id = destination.entrance_id
         self.destination_entrance_pos = destination.entrance_pos
 
     def __move(self) -> None:
@@ -184,46 +180,16 @@ class Commuter(GeoAgent):
 
     def __path_select(self) -> None:
         self.step_in_path = 0
-        if (cached_path := self.model.vertex_grid.get_cached_path(from_building=self.origin_id,
-                                                                  to_building=self.destination_id)) \
+        if (cached_path := self.model.walkway.get_cached_path(source=self.origin_entrance_pos,
+                                                              target=self.destination_entrance_pos)) \
                 is not None:
             self.my_path = cached_path
         else:
-            self.my_path = []
-            undone_vertices_id = set()
-            for vertex in self.model.vertex_grid.agents:
-                if vertex is not None:
-                    vertex.dist = 99999
-                    vertex.done = 0
-                    vertex.last_node_id = None
-                    undone_vertices_id.add(vertex.unique_id)
-            self.model.vertex_grid.get_vertex_by_id(self.origin_entrance_id).dist = 0
-
-            while undone_vertices_id:
-                for vertex in self.model.vertex_grid.agents:
-                    if vertex is not None and vertex.dist < 99999 and vertex.done == 0:
-                        neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=self.SPEED)
-                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex,
-                                                                                             distance=self.SPEED):
-                            if vertex != neighbor:
-                                distance = self.model.vertex_grid.distance(vertex, neighbor)
-                                dist_0 = distance + vertex.dist
-                                if neighbor.dist > dist_0:
-                                    neighbor.dist = dist_0
-                                    neighbor.done = 0
-                                    neighbor.last_node_id = vertex.unique_id
-                                    undone_vertices_id.add(neighbor.unique_id)
-                        vertex.done = 1
-                        undone_vertices_id.remove(vertex.unique_id)
-            x = self.destination_entrance_id
-
-            while x != self.origin_entrance_id:
-                x_node = self.model.vertex_grid.get_vertex_by_id(x)
-                self.my_path.append((x_node.shape.x, x_node.shape.y))
-                x = x_node.last_node_id
-            self.my_path.reverse()
-            self.model.vertex_grid.cache_path(from_building=self.origin_id, to_building=self.destination_id,
-                                              path=self.my_path)
+            self.my_path = self.model.walkway.get_shortest_path(source=self.origin_entrance_pos,
+                                                                target=self.destination_entrance_pos)
+            self.model.walkway.cache_path(source=self.origin_entrance_pos,
+                                          target=self.destination_entrance_pos,
+                                          path=self.my_path)
 
     def __make_friends_at_work(self) -> None:
         if self.status == "work":
