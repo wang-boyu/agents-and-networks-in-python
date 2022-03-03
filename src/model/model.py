@@ -53,7 +53,7 @@ class AgentsAndNetworks(Model):
 
     def __init__(self, campus: str, data_crs: str, buildings_file: str, walkway_file: str, lakes_file: str,
                  rivers_file: str, driveway_file: str, num_commuters, commuter_min_friends=5, commuter_max_friends=10,
-                 commuter_happiness_increase=0.5, commuter_happiness_decrease=0.5, commuter_speed=200.0,
+                 commuter_happiness_increase=0.5, commuter_happiness_decrease=0.5, commuter_speed=1.0,
                  chance_new_friend=5.0, model_crs="epsg:3857", show_walkway=False, show_lakes_and_rivers=False,
                  show_driveway=False) \
             -> None:
@@ -69,7 +69,7 @@ class AgentsAndNetworks(Model):
         Commuter.MAX_FRIENDS = commuter_max_friends
         Commuter.HAPPINESS_INCREASE = commuter_happiness_increase
         Commuter.HAPPINESS_DECREASE = commuter_happiness_decrease
-        Commuter.SPEED = commuter_speed
+        Commuter.SPEED = commuter_speed * 300.0  # meters per tick (5 minutes)
         Commuter.CHANCE_NEW_FRIEND = chance_new_friend
 
         self.__load_buildings_from_file(buildings_file, crs=model_crs, campus=campus)

@@ -7,9 +7,11 @@ import numpy as np
 from mesa import Model
 from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
-from shapely.geometry import Point
+from shapely.geometry import Point, LineString
+from shapely.ops import transform
 
 from src.agent.building import Building
+from src.space.utils import redistribute_vertices, UnitTransformer
 
 
 class Commuter(GeoAgent):
@@ -90,12 +92,12 @@ class Commuter(GeoAgent):
         self.happiness_work = 100.0
 
     def step(self) -> None:
-        self.__check_happiness()
-        self.__prepare_to_move()
-        self.__move()
-        self.__make_friends_at_work()
+        self._check_happiness()
+        self._prepare_to_move()
+        self._move()
+        self._make_friends_at_work()
 
-    def __check_happiness(self) -> None:
+    def _check_happiness(self) -> None:
         if self.status == "work":
             if len(self.work_friends_id) > self.MAX_FRIENDS:
                 self.happiness_work -= self.HAPPINESS_DECREASE * (len(self.work_friends_id) - self.MAX_FRIENDS)
@@ -105,7 +107,7 @@ class Commuter(GeoAgent):
                 else:
                     self.happiness_work += self.HAPPINESS_INCREASE
             if self.happiness_work < 0.0:
-                self.__relocate_work()
+                self._relocate_work()
         elif self.status == "home":
             if self.num_home_friends > self.MAX_FRIENDS:
                 self.happiness_home -= self.HAPPINESS_DECREASE * (self.num_home_friends - self.MAX_FRIENDS)
@@ -115,37 +117,37 @@ class Commuter(GeoAgent):
                 else:
                     self.happiness_home += self.HAPPINESS_INCREASE
             if self.happiness_home < 0.0:
-                self.__relocate_home()
+                self._relocate_home()
 
-    def __prepare_to_move(self) -> None:
+    def _prepare_to_move(self) -> None:
         # start going to work
         if self.status == "home" and self.model.hour == self.start_time_h and self.model.minute == self.start_time_m:
-            self.__set_origin(self.model.grid.get_building_by_id(self.my_home_id))
+            self._set_origin(self.model.grid.get_building_by_id(self.my_home_id))
             self.model.grid.move_commuter(self, pos=self.origin_pos)
-            self.__set_destination(self.model.grid.get_building_by_id(self.my_work_id))
-            self.__path_select()
+            self._set_destination(self.model.grid.get_building_by_id(self.my_work_id))
+            self._path_select()
             self.status = "transport"
         # start going home
         elif self.status == "work" and self.model.hour == self.end_time_h and self.model.minute == self.end_time_m:
-            self.__set_origin(self.model.grid.get_building_by_id(self.my_work_id))
+            self._set_origin(self.model.grid.get_building_by_id(self.my_work_id))
             self.model.grid.move_commuter(self, pos=self.origin_pos)
-            self.__set_destination(self.model.grid.get_building_by_id(self.my_home_id))
-            self.__path_select()
+            self._set_destination(self.model.grid.get_building_by_id(self.my_home_id))
+            self._path_select()
             self.status = "transport"
 
-    def __set_origin(self, origin: Building) -> None:
+    def _set_origin(self, origin: Building) -> None:
         self.origin_id = origin.unique_id
         self.origin_pos = origin.centroid
         self.origin_name = origin.name
         self.origin_entrance_pos = origin.entrance_pos
 
-    def __set_destination(self, destination: Building) -> None:
+    def _set_destination(self, destination: Building) -> None:
         self.destination_id = destination.unique_id
         self.destination_pos = destination.centroid
         self.destination_name = destination.name
         self.destination_entrance_pos = destination.entrance_pos
 
-    def __move(self) -> None:
+    def _move(self) -> None:
         if self.status == "transport":
             if self.step_in_path < len(self.my_path):
                 next_position = self.my_path[self.step_in_path]
@@ -162,7 +164,7 @@ class Commuter(GeoAgent):
     def advance(self) -> None:
         raise NotImplementedError
 
-    def __relocate_home(self) -> None:
+    def _relocate_home(self) -> None:
         old_home_id = self.my_home_id
         while True:
             new_home = self.model.grid.get_random_home()
@@ -170,7 +172,7 @@ class Commuter(GeoAgent):
                 break
         self.set_home(new_home)
 
-    def __relocate_work(self) -> None:
+    def _relocate_work(self) -> None:
         old_work_id = self.my_work_id
         while True:
             new_work = self.model.grid.get_random_work()
@@ -178,7 +180,7 @@ class Commuter(GeoAgent):
                 break
         self.set_work(new_work)
 
-    def __path_select(self) -> None:
+    def _path_select(self) -> None:
         self.step_in_path = 0
         if (cached_path := self.model.walkway.get_cached_path(source=self.origin_entrance_pos,
                                                               target=self.destination_entrance_pos)) \
@@ -187,11 +189,22 @@ class Commuter(GeoAgent):
         else:
             self.my_path = self.model.walkway.get_shortest_path(source=self.origin_entrance_pos,
                                                                 target=self.destination_entrance_pos)
+            self._redistribute_path_vertices()
             self.model.walkway.cache_path(source=self.origin_entrance_pos,
                                           target=self.destination_entrance_pos,
                                           path=self.my_path)
 
-    def __make_friends_at_work(self) -> None:
+    def _redistribute_path_vertices(self) -> None:
+        unit_transformer = UnitTransformer(degree_crs=self.model.walkway.crs)
+        original_path = LineString([Point(p) for p in self.my_path])
+        # from degree unit to meter
+        path_in_meters = unit_transformer.degree2meter(original_path)
+        redistributed_path_in_meters = redistribute_vertices(path_in_meters, self.SPEED)
+        # meter back to degree
+        redistributed_path_in_degree = unit_transformer.meter2degree(redistributed_path_in_meters)
+        self.my_path = list(redistributed_path_in_degree.coords)
+
+    def _make_friends_at_work(self) -> None:
         if self.status == "work":
             for work_friend_id in self.work_friends_id:
                 self.model.grid.get_commuter_by_id(work_friend_id).testing = True
