@@ -147,7 +147,7 @@ class AgentsAndNetworks(Model):
 
     def __set_building_entrance(self) -> None:
         for building in (*self.grid.homes, *self.grid.works, *self.grid.other_buildings):
-            building.entrance_pos = self.walkway.get_nearest_node_pos(building.centroid)
+            building.entrance_pos = self.walkway.get_nearest_node(building.centroid)
 
     def step(self) -> None:
         self.datacollector.collect(self)

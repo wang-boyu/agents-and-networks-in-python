@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple, Optional
 
 import geopandas as gpd
 import momepy
+import pyproj
 import networkx as nx
 from mesa.space import FloatCoordinate
 from sklearn.neighbors import KDTree
@@ -15,11 +16,13 @@ from src.space.utils import segmented
 class RoadNetwork:
     _nx_graph: nx.Graph
     _kd_tree: KDTree
+    _crs: pyproj.CRS
 
     def __init__(self, lines: gpd.GeoSeries):
         segmented_lines = gpd.GeoDataFrame(geometry=segmented(lines))
         G = momepy.gdf_to_nx(segmented_lines, approach='primal', length='length')
         self.nx_graph = G.subgraph(max(nx.connected_components(G), key=len))
+        self.crs = lines.crs
 
     @property
     def nx_graph(self) -> nx.Graph:
@@ -30,14 +33,22 @@ class RoadNetwork:
         self._nx_graph = nx_graph
         self._kd_tree = KDTree(nx_graph.nodes)
 
-    def get_nearest_node_pos(self, float_pos: FloatCoordinate) -> FloatCoordinate:
+    @property
+    def crs(self) -> pyproj.CRS:
+        return self._crs
+
+    @crs.setter
+    def crs(self, crs) -> None:
+        self._crs = crs
+
+    def get_nearest_node(self, float_pos: FloatCoordinate) -> FloatCoordinate:
         node_index = self._kd_tree.query([float_pos], k=1, return_distance=False)
         node_pos = self._kd_tree.get_arrays()[0][node_index[0, 0]]
         return tuple(node_pos)
 
     def get_shortest_path(self, source: FloatCoordinate, target: FloatCoordinate) -> List[FloatCoordinate]:
-        from_node_pos = self.get_nearest_node_pos(source)
-        to_node_pos = self.get_nearest_node_pos(target)
+        from_node_pos = self.get_nearest_node(source)
+        to_node_pos = self.get_nearest_node(target)
         # return nx.shortest_path(self.nx_graph, from_node_pos, to_node_pos, method="dijkstra", weight="length")
         return nx.astar_path(self.nx_graph, from_node_pos, to_node_pos, weight="length")
 
