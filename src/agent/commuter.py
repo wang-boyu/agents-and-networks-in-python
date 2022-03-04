@@ -8,7 +8,6 @@ from mesa import Model
 from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
 from shapely.geometry import Point, LineString
-from shapely.ops import transform
 
 from src.agent.building import Building
 from src.space.utils import redistribute_vertices, UnitTransformer
@@ -154,7 +153,7 @@ class Commuter(GeoAgent):
                 self.model.grid.move_commuter(self, next_position)
                 self.step_in_path += 1
             else:
-                self.model.grid.move_commuter(self, self.destination_entrance_pos)
+                self.model.grid.move_commuter(self, self.destination_pos)
                 if self.destination_id == self.my_work_id:
                     self.status = "work"
                 elif self.destination_id == self.my_home_id:
@@ -189,10 +188,10 @@ class Commuter(GeoAgent):
         else:
             self.my_path = self.model.walkway.get_shortest_path(source=self.origin_entrance_pos,
                                                                 target=self.destination_entrance_pos)
-            self._redistribute_path_vertices()
             self.model.walkway.cache_path(source=self.origin_entrance_pos,
                                           target=self.destination_entrance_pos,
                                           path=self.my_path)
+        self._redistribute_path_vertices()
 
     def _redistribute_path_vertices(self) -> None:
         unit_transformer = UnitTransformer(degree_crs=self.model.walkway.crs)
