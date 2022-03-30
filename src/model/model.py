@@ -123,8 +123,7 @@ class AgentsAndNetworks(Model):
         self.grid.add_buildings(buildings)
 
     def __load_road_vertices_from_file(self, walkway_file: str, crs: str, campus: str) -> None:
-        walkway_df = gpd.read_file(walkway_file).set_index("Id").set_crs(self.data_crs,
-                                                                         allow_override=True).to_crs(crs)
+        walkway_df = gpd.read_file(walkway_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         self.walkway = CampusWalkway(campus=campus, lines=walkway_df["geometry"])
         if self.show_walkway:
             walkway_creator = AgentCreator(Walkway, {"model": self}, crs=crs)
