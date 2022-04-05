@@ -68,7 +68,7 @@ class CampusWalkway(RoadNetwork):
             self._path_select_cache = dict()
 
     def cache_path(self, source: FloatCoordinate, target: FloatCoordinate, path: List[FloatCoordinate]) -> None:
-        print(f"caching path... current number of cached paths: {len(self._path_select_cache)}")
+        # print(f"caching path... current number of cached paths: {len(self._path_select_cache)}")
         self._path_select_cache[(source, target)] = path
         self._path_select_cache[(target, source)] = list(reversed(path))
         with open(self._path_cache_result, "wb") as cached_result:

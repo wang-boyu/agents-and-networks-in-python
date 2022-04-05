@@ -15,9 +15,9 @@ class Campus(GeoSpace):
     works: Tuple[Building]
     other_buildings: Tuple[Building]
     home_counter: DefaultDict[FloatCoordinate, int]
-    __buildings: Dict[int, Building]
-    __commuters_pos_map: DefaultDict[FloatCoordinate, Set[Commuter]]
-    __commuter_id_map: Dict[int, Commuter]
+    _buildings: Dict[int, Building]
+    _commuters_pos_map: DefaultDict[FloatCoordinate, Set[Commuter]]
+    _commuter_id_map: Dict[int, Commuter]
 
     def __init__(self, crs: str) -> None:
         super().__init__(crs=crs)
@@ -25,9 +25,9 @@ class Campus(GeoSpace):
         self.works = tuple()
         self.other_buildings = tuple()
         self.home_counter = defaultdict(int)
-        self.__buildings = dict()
-        self.__commuters_pos_map = defaultdict(set)
-        self.__commuter_id_map = dict()
+        self._buildings = dict()
+        self._commuters_pos_map = defaultdict(set)
+        self._commuter_id_map = dict()
 
     def get_random_home(self) -> Building:
         return random.choice(self.homes)
@@ -36,14 +36,14 @@ class Campus(GeoSpace):
         return random.choice(self.works)
 
     def get_building_by_id(self, unique_id: int) -> Building:
-        return self.__buildings[unique_id]
+        return self._buildings[unique_id]
 
     def add_buildings(self, agents) -> None:
         super().add_agents(agents)
         homes, works, other_buildings = [], [], []
         for agent in agents:
             if isinstance(agent, Building):
-                self.__buildings[agent.unique_id] = agent
+                self._buildings[agent.unique_id] = agent
                 if agent.function == 0.0:
                     other_buildings.append(agent)
                 elif agent.function == 1.0:
@@ -55,15 +55,15 @@ class Campus(GeoSpace):
         self.homes = self.homes + tuple(homes)
 
     def get_commuters_by_pos(self, float_pos: FloatCoordinate) -> Set[Commuter]:
-        return self.__commuters_pos_map[float_pos]
+        return self._commuters_pos_map[float_pos]
 
     def get_commuter_by_id(self, commuter_id: int) -> Commuter:
-        return self.__commuter_id_map[commuter_id]
+        return self._commuter_id_map[commuter_id]
 
     def add_commuter(self, agent: Commuter) -> None:
         super().add_agents([agent])
-        self.__commuters_pos_map[(agent.shape.x, agent.shape.y)].add(agent)
-        self.__commuter_id_map[agent.unique_id] = agent
+        self._commuters_pos_map[(agent.shape.x, agent.shape.y)].add(agent)
+        self._commuter_id_map[agent.unique_id] = agent
 
     def update_home_counter(self, old_home_pos: Optional[FloatCoordinate], new_home_pos: FloatCoordinate) -> None:
         if old_home_pos is not None:
@@ -77,7 +77,5 @@ class Campus(GeoSpace):
 
     def __remove_commuter(self, commuter: Commuter) -> None:
         super().remove_agent(commuter)
-        # delete_agent() not working properly. Reference: https://github.com/Corvince/mesa-geo/issues/28
-        del self.idx.agents[id(commuter)]
-        del self.__commuter_id_map[commuter.unique_id]
-        self.__commuters_pos_map[(commuter.shape.x, commuter.shape.y)].remove(commuter)
+        del self._commuter_id_map[commuter.unique_id]
+        self._commuters_pos_map[(commuter.shape.x, commuter.shape.y)].remove(commuter)

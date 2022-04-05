@@ -41,7 +41,7 @@ class AgentsAndNetworks(Model):
     show_walkway: bool
     show_lakes_and_rivers: bool
     current_id: int
-    grid: Campus
+    space: Campus
     walkway: CampusWalkway
     world_size: gpd.geodataframe.GeoDataFrame
     got_to_destination: int  # count the total number of arrivals
@@ -62,7 +62,7 @@ class AgentsAndNetworks(Model):
         self.show_walkway = show_walkway
         self.show_lakes_and_rivers = show_lakes_and_rivers
         self.data_crs = data_crs
-        self.grid = Campus(crs=model_crs)
+        self.space = Campus(crs=model_crs)
         self.num_commuters = num_commuters
 
         Commuter.MIN_FRIENDS = commuter_min_friends
@@ -98,13 +98,13 @@ class AgentsAndNetworks(Model):
 
     def __create_commuters(self) -> None:
         for _ in range(self.num_commuters):
-            random_home = self.grid.get_random_home()
-            random_work = self.grid.get_random_work()
+            random_home = self.space.get_random_home()
+            random_work = self.space.get_random_work()
             commuter = Commuter(unique_id=uuid.uuid4().int, model=self, shape=Point(random_home.centroid))
             commuter.set_home(random_home)
             commuter.set_work(random_work)
             commuter.status = "home"
-            self.grid.add_commuter(commuter)
+            self.space.add_commuter(commuter)
             self.schedule.add(commuter)
 
     def __load_buildings_from_file(self, buildings_file: str, crs: str, campus: str) -> None:
@@ -120,7 +120,7 @@ class AgentsAndNetworks(Model):
         buildings_df["centroid"] = [(x, y) for x, y in zip(buildings_df.centroid.x, buildings_df.centroid.y)]
         building_creator = AgentCreator(Building, {"model": self}, crs=crs)
         buildings = building_creator.from_GeoDataFrame(buildings_df)
-        self.grid.add_buildings(buildings)
+        self.space.add_buildings(buildings)
 
     def __load_road_vertices_from_file(self, walkway_file: str, crs: str, campus: str) -> None:
         walkway_df = gpd.read_file(walkway_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
@@ -128,24 +128,24 @@ class AgentsAndNetworks(Model):
         if self.show_walkway:
             walkway_creator = AgentCreator(Walkway, {"model": self}, crs=crs)
             walkway = walkway_creator.from_GeoDataFrame(walkway_df)
-            self.grid.add_agents(walkway)
+            self.space.add_agents(walkway)
 
     def __load_driveway_from_file(self, driveway_file: str, crs: str) -> None:
         driveway_df = gpd.read_file(driveway_file).set_index("Id").set_crs(self.data_crs,
                                                                            allow_override=True).to_crs(crs)
         driveway_creator = AgentCreator(Driveway, {"model": self}, crs=crs)
         driveway = driveway_creator.from_GeoDataFrame(driveway_df)
-        self.grid.add_agents(driveway)
+        self.space.add_agents(driveway)
 
     def __load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
         lake_river_df = gpd.read_file(lake_river_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         lake_river_df.index.names = ["Id"]
         lake_river_creator = AgentCreator(LakeAndRiver, {"model": self}, crs=crs)
         gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
-        self.grid.add_agents(gmu_lake_river)
+        self.space.add_agents(gmu_lake_river)
 
     def __set_building_entrance(self) -> None:
-        for building in (*self.grid.homes, *self.grid.works, *self.grid.other_buildings):
+        for building in (*self.space.homes, *self.space.works, *self.space.other_buildings):
             building.entrance_pos = self.walkway.get_nearest_node(building.centroid)
 
     def step(self) -> None:
