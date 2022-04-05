@@ -7,31 +7,22 @@ import numpy as np
 from mesa import Model
 from mesa.space import FloatCoordinate
 from mesa_geo.geoagent import GeoAgent
-from shapely.geometry import Point
+from shapely.geometry import Point, LineString
+
+from src.agent.building import Building
+from src.space.utils import redistribute_vertices, UnitTransformer
 
 
 class Commuter(GeoAgent):
     unique_id: int  # commuter_id, used to link commuters and nodes
     model: Model
     shape: Point
-    my_node_entrance_id: int  # where he begins his trip
-    my_node_pos: FloatCoordinate
-    my_node_id: int
-    my_node_name: str
-    destination_id: int  # the destination he wants to arrive at
-    destination_pos: FloatCoordinate
-    destination_name: str
-    destination_entrance_id: int
-    destination_entrance_pos: FloatCoordinate
+    origin: Building  # where he begins his trip
+    destination: Building  # the destination he wants to arrive at
     my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
-    # last_stop: RoadVertex  # last destination
-    my_home_id: int
-    my_home_pos: FloatCoordinate  # home location
-    my_home_name: str
-    my_work_id: int
-    my_work_pos: FloatCoordinate  # work location
-    my_work_name: str
+    my_home: Building
+    my_work: Building
     start_time_h: int  # time to start going to work, hour and minute
     start_time_m: int
     end_time_h: int  # time to leave work, hour and minute
@@ -50,7 +41,7 @@ class Commuter(GeoAgent):
 
     def __init__(self, unique_id, model, shape) -> None:
         super().__init__(unique_id, model, shape)
-        # self.last_stop = None
+        self.my_home = None
         self.start_time_h = round(np.random.normal(6.5, 1))
         while self.start_time_h < 6 or self.start_time_h > 9:
             self.start_time_h = round(np.random.normal(6.5, 1))
@@ -68,19 +59,30 @@ class Commuter(GeoAgent):
 
     @property
     def num_home_friends(self) -> int:
-        return self.model.grid.home_counter[self.my_home_pos]
+        return self.model.space.home_counter[self.my_home.centroid]
 
     @property
     def num_work_friends(self) -> int:
         return len(self.work_friends_id)
 
-    def step(self) -> None:
-        self.__check_happiness()
-        self.__prepare_to_move()
-        self.__move()
-        self.__make_friends_at_work()
+    def set_home(self, new_home: Building) -> None:
+        old_home_pos = self.my_home.centroid if self.my_home else None
+        self.my_home = new_home
+        self.happiness_home = 100.0
+        self.model.space.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home.centroid)
 
-    def __check_happiness(self) -> None:
+    def set_work(self, new_work: Building) -> None:
+        self.my_work = new_work
+        self.work_friends_id = []
+        self.happiness_work = 100.0
+
+    def step(self) -> None:
+        self._check_happiness()
+        self._prepare_to_move()
+        self._move()
+        self._make_friends_at_work()
+
+    def _check_happiness(self) -> None:
         if self.status == "work":
             if len(self.work_friends_id) > self.MAX_FRIENDS:
                 self.happiness_work -= self.HAPPINESS_DECREASE * (len(self.work_friends_id) - self.MAX_FRIENDS)
@@ -90,7 +92,7 @@ class Commuter(GeoAgent):
                 else:
                     self.happiness_work += self.HAPPINESS_INCREASE
             if self.happiness_work < 0.0:
-                self.__relocate_work()
+                self._relocate_work()
         elif self.status == "home":
             if self.num_home_friends > self.MAX_FRIENDS:
                 self.happiness_home -= self.HAPPINESS_DECREASE * (self.num_home_friends - self.MAX_FRIENDS)
@@ -100,139 +102,84 @@ class Commuter(GeoAgent):
                 else:
                     self.happiness_home += self.HAPPINESS_INCREASE
             if self.happiness_home < 0.0:
-                self.__relocate_home()
+                self._relocate_home()
 
-    def __prepare_to_move(self) -> None:
+    def _prepare_to_move(self) -> None:
         # start going to work
         if self.status == "home" and self.model.hour == self.start_time_h and self.model.minute == self.start_time_m:
-            self.my_node_entrance_id = self.model.grid.get_building_by_id(self.my_home_id).entrance_id
-            self.my_node_pos = self.model.grid.get_building_by_id(self.my_home_id).entrance_pos
-            self.my_node_id = self.model.grid.get_building_by_id(self.my_home_id).unique_id
-            self.my_node_name = self.model.grid.get_building_by_id(self.my_home_id).name
-            self.model.grid.move_commuter(self, pos=self.my_node_pos)
-            self.destination_id = self.my_work_id
-            self.destination_pos = self.my_work_pos
-            self.destination_name = self.my_work_name
-            self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
-            self.destination_entrance_pos = self.model.grid.get_building_by_id(self.destination_id).entrance_pos
-            self.__path_select()
+            self.origin = self.model.space.get_building_by_id(self.my_home.unique_id)
+            self.model.space.move_commuter(self, pos=self.origin.centroid)
+            self.destination = self.model.space.get_building_by_id(self.my_work.unique_id)
+            self._path_select()
             self.status = "transport"
         # start going home
         elif self.status == "work" and self.model.hour == self.end_time_h and self.model.minute == self.end_time_m:
-            self.my_node_entrance_id = self.model.grid.get_building_by_id(self.my_work_id).entrance_id
-            self.my_node_pos = self.model.grid.get_building_by_id(self.my_work_id).entrance_pos
-            self.my_node_id = self.model.grid.get_building_by_id(self.my_work_id).unique_id
-            self.my_node_name = self.model.grid.get_building_by_id(self.my_work_id).name
-            self.model.grid.move_commuter(self, pos=self.my_node_pos)
-            self.destination_id = self.my_home_id
-            self.destination_pos = self.my_home_pos
-            self.destination_name = self.my_home_name
-            self.destination_entrance_id = self.model.grid.get_building_by_id(self.destination_id).entrance_id
-            self.destination_entrance_pos = self.model.grid.get_building_by_id(self.destination_id).entrance_pos
-            self.__path_select()
+            self.origin = self.model.space.get_building_by_id(self.my_work.unique_id)
+            self.model.space.move_commuter(self, pos=self.origin.centroid)
+            self.destination = self.model.space.get_building_by_id(self.my_home.unique_id)
+            self._path_select()
             self.status = "transport"
 
-    def __move(self) -> None:
+    def _move(self) -> None:
         if self.status == "transport":
             if self.step_in_path < len(self.my_path):
                 next_position = self.my_path[self.step_in_path]
-                self.model.grid.move_commuter(self, next_position)
+                self.model.space.move_commuter(self, next_position)
                 self.step_in_path += 1
             else:
-                self.model.grid.move_commuter(self, self.destination_entrance_pos)
-                if self.destination_id == self.my_work_id:
+                self.model.space.move_commuter(self, self.destination.centroid)
+                if self.destination == self.my_work:
                     self.status = "work"
-                elif self.destination_id == self.my_home_id:
+                elif self.destination == self.my_home:
                     self.status = "home"
                 self.model.got_to_destination += 1
 
     def advance(self) -> None:
         raise NotImplementedError
 
-    def __relocate_home(self) -> None:
-        old_home_id = self.my_home_id
-        old_home_pos = self.my_home_pos
-        while True:
-            new_home = self.model.grid.get_random_home()
-            if new_home.unique_id != old_home_id:
-                break
-        self.my_home_id = new_home.unique_id
-        self.my_home_pos = new_home.centroid
-        self.my_node_name = new_home.name
-        self.happiness_home = 100.0
-        self.model.grid.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home_pos)
+    def _relocate_home(self) -> None:
+        while (new_home := self.model.space.get_random_home()) == self.my_home:
+            continue
+        self.set_home(new_home)
 
-    def __relocate_work(self) -> None:
-        old_work_id = self.my_work_id
-        while True:
-            new_work = self.model.grid.get_random_work()
-            if new_work.unique_id != old_work_id:
-                break
-        self.my_work_id = new_work.unique_id
-        self.my_work_pos = new_work.centroid
-        self.my_work_name = new_work.name
-        self.work_friends_id = []
-        self.happiness_work = 100.0
+    def _relocate_work(self) -> None:
+        while (new_work := self.model.space.get_random_work()) == self.my_work:
+            continue
+        self.set_work(new_work)
 
-    def __path_select(self) -> None:
+    def _path_select(self) -> None:
         self.step_in_path = 0
-        if (cached_path := self.model.vertex_grid.get_cached_path(from_building=self.my_node_name,
-                                                                  to_building=self.destination_name)) \
+        if (cached_path := self.model.walkway.get_cached_path(source=self.origin.entrance_pos,
+                                                              target=self.destination.entrance_pos)) \
                 is not None:
             self.my_path = cached_path
         else:
-            self.my_path = []
-            undone_vertices_id = set()
-            for vertex in self.model.vertex_grid.agents:
-                if vertex is not None:
-                    vertex.dist = 99999
-                    vertex.done = 0
-                    vertex.last_node_id = None
-                    undone_vertices_id.add(vertex.unique_id)
-            self.model.vertex_grid.get_vertex_by_id(self.my_node_entrance_id).dist = 0
+            self.my_path = self.model.walkway.get_shortest_path(source=self.origin.entrance_pos,
+                                                                target=self.destination.entrance_pos)
+            self.model.walkway.cache_path(source=self.origin.entrance_pos,
+                                          target=self.destination.entrance_pos,
+                                          path=self.my_path)
+        self._redistribute_path_vertices()
 
-            # previous_num_undone_vertices = 0
-            while undone_vertices_id:
-                # num_undone_vertices = len(undone_vertices_id)
-                # if num_undone_vertices == previous_num_undone_vertices:
-                #     breakpoint()
-                # previous_num_undone_vertices = num_undone_vertices
-                for vertex in self.model.vertex_grid.agents:
-                    if vertex is not None and vertex.dist < 99999 and vertex.done == 0:
-                        neighbors = self.model.vertex_grid.get_neighbors_within_distance(vertex, distance=self.SPEED)
-                        num_neighbors = len(list(neighbors))
-                        # print(f"number of neighbors found: {num_neighbors}")
-                        for neighbor in self.model.vertex_grid.get_neighbors_within_distance(vertex,
-                                                                                             distance=self.SPEED):
-                            if vertex != neighbor:
-                                distance = self.model.vertex_grid.distance(vertex, neighbor)
-                                dist_0 = distance + vertex.dist
-                                if neighbor.dist > dist_0:
-                                    neighbor.dist = dist_0
-                                    neighbor.done = 0
-                                    neighbor.last_node_id = vertex.unique_id
-                                    undone_vertices_id.add(neighbor.unique_id)
-                        vertex.done = 1
-                        undone_vertices_id.remove(vertex.unique_id)
-            x = self.destination_entrance_id
+    def _redistribute_path_vertices(self) -> None:
+        unit_transformer = UnitTransformer(degree_crs=self.model.walkway.crs)
+        original_path = LineString([Point(p) for p in self.my_path])
+        # from degree unit to meter
+        path_in_meters = unit_transformer.degree2meter(original_path)
+        redistributed_path_in_meters = redistribute_vertices(path_in_meters, self.SPEED)
+        # meter back to degree
+        redistributed_path_in_degree = unit_transformer.meter2degree(redistributed_path_in_meters)
+        self.my_path = list(redistributed_path_in_degree.coords)
 
-            while x != self.my_node_entrance_id:
-                x_node = self.model.vertex_grid.get_vertex_by_id(x)
-                self.my_path.append((x_node.shape.x, x_node.shape.y))
-                x = x_node.last_node_id
-            self.my_path.reverse()
-            self.model.vertex_grid.cache_path(from_building=self.my_node_name, to_building=self.destination_name,
-                                              path=self.my_path)
-
-    def __make_friends_at_work(self) -> None:
+    def _make_friends_at_work(self) -> None:
         if self.status == "work":
             for work_friend_id in self.work_friends_id:
-                self.model.grid.get_commuter_by_id(work_friend_id).testing = True
-            commuters_to_check = [c for c in self.model.grid.get_commuters_by_pos((self.shape.x, self.shape.y))
+                self.model.space.get_commuter_by_id(work_friend_id).testing = True
+            commuters_to_check = [c for c in self.model.space.get_commuters_by_pos((self.shape.x, self.shape.y))
                                   if not c.testing]
             if commuters_to_check and np.random.uniform(0.0, 100.0) < self.CHANCE_NEW_FRIEND:
                 target_friend = random.choice(commuters_to_check)
                 target_friend.work_friends_id.append(self.unique_id)
                 self.work_friends_id.append(target_friend.unique_id)
             for work_friend_id in self.work_friends_id:
-                self.model.grid.get_commuter_by_id(work_friend_id).testing = False
+                self.model.space.get_commuter_by_id(work_friend_id).testing = False

@@ -41,8 +41,10 @@ if __name__ == "__main__":
         "show_walkway": True,
         "show_lakes_and_rivers": True,
         "show_driveway": True,
-        "num_commuters": UserSettableParameter('slider',
-                                               'Number of Commuters', value=50, min_value=10, max_value=150, step=10)
+        "num_commuters": UserSettableParameter('slider', 'Number of Commuters',
+                                               value=50, min_value=10, max_value=150, step=10),
+        "commuter_speed": UserSettableParameter('slider', 'Commuter Walking Speed (m/s)',
+                                                value=1.0, min_value=0.1, max_value=1.5, step=0.1)
     }
     map_params = {
         "ub": {"view": [43.0022471679366, -78.785149],

@@ -3,7 +3,7 @@
 
 # external requirements
 mesa
-mesa-geo
+git+https://github.com/projectmesa/mesa-geo.git
 geopandas
 numpy
 pandas
@@ -16,4 +16,5 @@ jupyter_contrib_nbextensions
 jupyter_nbextensions_configurator
 autopep8
 tqdm
-
+momepy
+networkx
