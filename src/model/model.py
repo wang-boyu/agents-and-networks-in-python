@@ -72,20 +72,20 @@ class AgentsAndNetworks(Model):
         Commuter.SPEED = commuter_speed * 300.0  # meters per tick (5 minutes)
         Commuter.CHANCE_NEW_FRIEND = chance_new_friend
 
-        self.__load_buildings_from_file(buildings_file, crs=model_crs, campus=campus)
-        self.__load_road_vertices_from_file(walkway_file, crs=model_crs, campus=campus)
-        self.__set_building_entrance()
+        self._load_buildings_from_file(buildings_file, crs=model_crs, campus=campus)
+        self._load_road_vertices_from_file(walkway_file, crs=model_crs, campus=campus)
+        self._set_building_entrance()
         self.got_to_destination = 0
-        self.__create_commuters()
+        self._create_commuters()
         self.day = 0
         self.hour = 5
         self.minute = 55
 
         if show_driveway:
-            self.__load_driveway_from_file(driveway_file, crs=model_crs)
+            self._load_driveway_from_file(driveway_file, crs=model_crs)
         if show_lakes_and_rivers:
-            self.__load_lakes_and_rivers_from_file(lakes_file, crs=model_crs)
-            self.__load_lakes_and_rivers_from_file(rivers_file, crs=model_crs)
+            self._load_lakes_and_rivers_from_file(lakes_file, crs=model_crs)
+            self._load_lakes_and_rivers_from_file(rivers_file, crs=model_crs)
 
         self.datacollector = DataCollector(model_reporters={
             "time": get_time,
@@ -96,7 +96,7 @@ class AgentsAndNetworks(Model):
             "friendship_work": partial(get_total_friendships_by_type, friendship_type="work")
         })
 
-    def __create_commuters(self) -> None:
+    def _create_commuters(self) -> None:
         for _ in range(self.num_commuters):
             random_home = self.space.get_random_home()
             random_work = self.space.get_random_work()
@@ -107,7 +107,7 @@ class AgentsAndNetworks(Model):
             self.space.add_commuter(commuter)
             self.schedule.add(commuter)
 
-    def __load_buildings_from_file(self, buildings_file: str, crs: str, campus: str) -> None:
+    def _load_buildings_from_file(self, buildings_file: str, crs: str, campus: str) -> None:
         assert campus in ("ub", "gmu")
 
         buildings_df = gpd.read_file(buildings_file)
@@ -122,7 +122,7 @@ class AgentsAndNetworks(Model):
         buildings = building_creator.from_GeoDataFrame(buildings_df)
         self.space.add_buildings(buildings)
 
-    def __load_road_vertices_from_file(self, walkway_file: str, crs: str, campus: str) -> None:
+    def _load_road_vertices_from_file(self, walkway_file: str, crs: str, campus: str) -> None:
         walkway_df = gpd.read_file(walkway_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         self.walkway = CampusWalkway(campus=campus, lines=walkway_df["geometry"])
         if self.show_walkway:
@@ -130,21 +130,21 @@ class AgentsAndNetworks(Model):
             walkway = walkway_creator.from_GeoDataFrame(walkway_df)
             self.space.add_agents(walkway)
 
-    def __load_driveway_from_file(self, driveway_file: str, crs: str) -> None:
+    def _load_driveway_from_file(self, driveway_file: str, crs: str) -> None:
         driveway_df = gpd.read_file(driveway_file).set_index("Id").set_crs(self.data_crs,
                                                                            allow_override=True).to_crs(crs)
         driveway_creator = AgentCreator(Driveway, {"model": self}, crs=crs)
         driveway = driveway_creator.from_GeoDataFrame(driveway_df)
         self.space.add_agents(driveway)
 
-    def __load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
+    def _load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
         lake_river_df = gpd.read_file(lake_river_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         lake_river_df.index.names = ["Id"]
         lake_river_creator = AgentCreator(LakeAndRiver, {"model": self}, crs=crs)
         gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
         self.space.add_agents(gmu_lake_river)
 
-    def __set_building_entrance(self) -> None:
+    def _set_building_entrance(self) -> None:
         for building in (*self.space.homes, *self.space.works, *self.space.other_buildings):
             building.entrance_pos = self.walkway.get_nearest_node(building.centroid)
 

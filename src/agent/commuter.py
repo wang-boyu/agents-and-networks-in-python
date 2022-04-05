@@ -162,14 +162,17 @@ class Commuter(GeoAgent):
         self._redistribute_path_vertices()
 
     def _redistribute_path_vertices(self) -> None:
-        unit_transformer = UnitTransformer(degree_crs=self.model.walkway.crs)
-        original_path = LineString([Point(p) for p in self.my_path])
-        # from degree unit to meter
-        path_in_meters = unit_transformer.degree2meter(original_path)
-        redistributed_path_in_meters = redistribute_vertices(path_in_meters, self.SPEED)
-        # meter back to degree
-        redistributed_path_in_degree = unit_transformer.meter2degree(redistributed_path_in_meters)
-        self.my_path = list(redistributed_path_in_degree.coords)
+        # if origin and destination share the same entrance, then self.my_path will contain only this entrance node,
+        # and len(self.path) == 1. There is no need to redistribute path vertices.
+        if len(self.my_path) > 1:
+            unit_transformer = UnitTransformer(degree_crs=self.model.walkway.crs)
+            original_path = LineString([Point(p) for p in self.my_path])
+            # from degree unit to meter
+            path_in_meters = unit_transformer.degree2meter(original_path)
+            redistributed_path_in_meters = redistribute_vertices(path_in_meters, self.SPEED)
+            # meter back to degree
+            redistributed_path_in_degree = unit_transformer.meter2degree(redistributed_path_in_meters)
+            self.my_path = list(redistributed_path_in_degree.coords)
 
     def _make_friends_at_work(self) -> None:
         if self.status == "work":
