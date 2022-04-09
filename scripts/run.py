@@ -1,8 +1,8 @@
 import argparse
 
 from mesa.visualization.UserParam import UserSettableParameter
-from mesa_geo.visualization.MapModule import MapModule
 from mesa_geo.visualization.ModularVisualization import ModularServer
+from mesa_geo.visualization.modules import MapModule
 
 from src.model.model import AgentsAndNetworks
 from src.visualization.server import agent_draw, clock_element, status_chart, friendship_chart

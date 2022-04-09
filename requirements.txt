@@ -3,7 +3,7 @@
 
 # external requirements
 mesa
-git+https://github.com/projectmesa/mesa-geo.git
+git+https://github.com/projectmesa/mesa-geo.git#egg=mesa-geo
 geopandas
 numpy
 pandas
