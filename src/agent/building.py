@@ -12,14 +12,14 @@ from shapely.geometry import Polygon
 class Building(GeoAgent):
     unique_id: int  # an ID that represents the building
     model: Model
-    shape: Polygon
+    geometry: Polygon
     centroid: FloatCoordinate
     name: str
     function: float  # 1.0 for work, 2.0 for home, 0.0 for neither
     entrance_pos: FloatCoordinate  # nearest vertex on road
 
-    def __init__(self, unique_id, model, shape) -> None:
-        super().__init__(unique_id=unique_id, model=model, shape=shape)
+    def __init__(self, unique_id, model, geometry) -> None:
+        super().__init__(unique_id=unique_id, model=model, geometry=geometry)
         self.entrance = None
         self.name = str(uuid.uuid4())
         self.function = randrange(3)

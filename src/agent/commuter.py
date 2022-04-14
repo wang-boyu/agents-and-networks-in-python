@@ -16,7 +16,7 @@ from src.space.utils import redistribute_vertices, UnitTransformer
 class Commuter(GeoAgent):
     unique_id: int  # commuter_id, used to link commuters and nodes
     model: Model
-    shape: Point
+    geometry: Point
     origin: Building  # where he begins his trip
     destination: Building  # the destination he wants to arrive at
     my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
@@ -39,8 +39,8 @@ class Commuter(GeoAgent):
     SPEED: float
     CHANCE_NEW_FRIEND: float  # percent chance to make a new friend every 5 min
 
-    def __init__(self, unique_id, model, shape) -> None:
-        super().__init__(unique_id, model, shape)
+    def __init__(self, unique_id, model, geometry) -> None:
+        super().__init__(unique_id, model, geometry)
         self.my_home = None
         self.start_time_h = round(np.random.normal(6.5, 1))
         while self.start_time_h < 6 or self.start_time_h > 9:
@@ -54,7 +54,7 @@ class Commuter(GeoAgent):
         self.testing = False
 
     def __repr__(self) -> str:
-        return f"Commuter(unique_id={self.unique_id}, shape={self.shape}, status={self.status}, " \
+        return f"Commuter(unique_id={self.unique_id}, geometry={self.geometry}, status={self.status}, " \
                f"num_home_friends={self.num_home_friends}, num_work_friends={len(self.work_friends_id)})"
 
     @property
@@ -178,7 +178,7 @@ class Commuter(GeoAgent):
         if self.status == "work":
             for work_friend_id in self.work_friends_id:
                 self.model.space.get_commuter_by_id(work_friend_id).testing = True
-            commuters_to_check = [c for c in self.model.space.get_commuters_by_pos((self.shape.x, self.shape.y))
+            commuters_to_check = [c for c in self.model.space.get_commuters_by_pos((self.geometry.x, self.geometry.y))
                                   if not c.testing]
             if commuters_to_check and np.random.uniform(0.0, 100.0) < self.CHANCE_NEW_FRIEND:
                 target_friend = random.choice(commuters_to_check)

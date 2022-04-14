@@ -62,7 +62,7 @@ class Campus(GeoSpace):
 
     def add_commuter(self, agent: Commuter) -> None:
         super().add_agents([agent])
-        self._commuters_pos_map[(agent.shape.x, agent.shape.y)].add(agent)
+        self._commuters_pos_map[(agent.geometry.x, agent.geometry.y)].add(agent)
         self._commuter_id_map[agent.unique_id] = agent
 
     def update_home_counter(self, old_home_pos: Optional[FloatCoordinate], new_home_pos: FloatCoordinate) -> None:
@@ -72,10 +72,10 @@ class Campus(GeoSpace):
 
     def move_commuter(self, commuter: Commuter, pos: FloatCoordinate) -> None:
         self.__remove_commuter(commuter)
-        commuter.shape = Point(pos)
+        commuter.geometry = Point(pos)
         self.add_commuter(commuter)
 
     def __remove_commuter(self, commuter: Commuter) -> None:
         super().remove_agent(commuter)
         del self._commuter_id_map[commuter.unique_id]
-        self._commuters_pos_map[(commuter.shape.x, commuter.shape.y)].remove(commuter)
+        self._commuters_pos_map[(commuter.geometry.x, commuter.geometry.y)].remove(commuter)

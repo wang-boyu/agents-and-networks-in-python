@@ -100,7 +100,7 @@ class AgentsAndNetworks(Model):
         for _ in range(self.num_commuters):
             random_home = self.space.get_random_home()
             random_work = self.space.get_random_work()
-            commuter = Commuter(unique_id=uuid.uuid4().int, model=self, shape=Point(random_home.centroid))
+            commuter = Commuter(unique_id=uuid.uuid4().int, model=self, geometry=Point(random_home.centroid))
             commuter.set_home(random_home)
             commuter.set_work(random_work)
             commuter.status = "home"
