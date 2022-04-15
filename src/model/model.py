@@ -100,7 +100,8 @@ class AgentsAndNetworks(Model):
         for _ in range(self.num_commuters):
             random_home = self.space.get_random_home()
             random_work = self.space.get_random_work()
-            commuter = Commuter(unique_id=uuid.uuid4().int, model=self, geometry=Point(random_home.centroid))
+            commuter = Commuter(unique_id=uuid.uuid4().int, model=self, geometry=Point(random_home.centroid),
+                                crs=self.space.crs)
             commuter.set_home(random_home)
             commuter.set_work(random_work)
             commuter.status = "home"
@@ -118,7 +119,7 @@ class AgentsAndNetworks(Model):
         buildings_df.index.name = "unique_id"
         buildings_df = buildings_df.set_crs(self.data_crs, allow_override=True).to_crs(crs)
         buildings_df["centroid"] = [(x, y) for x, y in zip(buildings_df.centroid.x, buildings_df.centroid.y)]
-        building_creator = AgentCreator(Building, {"model": self}, crs=crs)
+        building_creator = AgentCreator(Building, model=self)
         buildings = building_creator.from_GeoDataFrame(buildings_df)
         self.space.add_buildings(buildings)
 
@@ -126,21 +127,21 @@ class AgentsAndNetworks(Model):
         walkway_df = gpd.read_file(walkway_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         self.walkway = CampusWalkway(campus=campus, lines=walkway_df["geometry"])
         if self.show_walkway:
-            walkway_creator = AgentCreator(Walkway, {"model": self}, crs=crs)
+            walkway_creator = AgentCreator(Walkway, model=self)
             walkway = walkway_creator.from_GeoDataFrame(walkway_df)
             self.space.add_agents(walkway)
 
     def _load_driveway_from_file(self, driveway_file: str, crs: str) -> None:
         driveway_df = gpd.read_file(driveway_file).set_index("Id").set_crs(self.data_crs,
                                                                            allow_override=True).to_crs(crs)
-        driveway_creator = AgentCreator(Driveway, {"model": self}, crs=crs)
+        driveway_creator = AgentCreator(Driveway, model=self)
         driveway = driveway_creator.from_GeoDataFrame(driveway_df)
         self.space.add_agents(driveway)
 
     def _load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
         lake_river_df = gpd.read_file(lake_river_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         lake_river_df.index.names = ["Id"]
-        lake_river_creator = AgentCreator(LakeAndRiver, {"model": self}, crs=crs)
+        lake_river_creator = AgentCreator(LakeAndRiver, model=self)
         gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
         self.space.add_agents(gmu_lake_river)
 

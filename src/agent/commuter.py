@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from typing import List
 
+import pyproj
 import numpy as np
 from mesa import Model
 from mesa.space import FloatCoordinate
@@ -17,6 +18,7 @@ class Commuter(GeoAgent):
     unique_id: int  # commuter_id, used to link commuters and nodes
     model: Model
     geometry: Point
+    crs: pyproj.CRS
     origin: Building  # where he begins his trip
     destination: Building  # the destination he wants to arrive at
     my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
@@ -39,8 +41,8 @@ class Commuter(GeoAgent):
     SPEED: float
     CHANCE_NEW_FRIEND: float  # percent chance to make a new friend every 5 min
 
-    def __init__(self, unique_id, model, geometry) -> None:
-        super().__init__(unique_id, model, geometry)
+    def __init__(self, unique_id, model, geometry, crs) -> None:
+        super().__init__(unique_id, model, geometry, crs)
         self.my_home = None
         self.start_time_h = round(np.random.normal(6.5, 1))
         while self.start_time_h < 6 or self.start_time_h > 9:
