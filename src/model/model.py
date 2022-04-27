@@ -10,7 +10,6 @@ from mesa_geo.geoagent import AgentCreator
 from shapely.geometry import Point
 
 from src.agent.commuter import Commuter
-from src.agent.geo_agents import Driveway, LakeAndRiver, Walkway
 from src.agent.building import Building
 from src.space.campus import Campus
 from src.space.road_network import CampusWalkway
@@ -127,23 +126,17 @@ class AgentsAndNetworks(Model):
         walkway_df = gpd.read_file(walkway_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         self.walkway = CampusWalkway(campus=campus, lines=walkway_df["geometry"])
         if self.show_walkway:
-            walkway_creator = AgentCreator(Walkway, model=self)
-            walkway = walkway_creator.from_GeoDataFrame(walkway_df)
-            self.space.add_agents(walkway)
+            self.space.add_layer(walkway_df)
 
     def _load_driveway_from_file(self, driveway_file: str, crs: str) -> None:
         driveway_df = gpd.read_file(driveway_file).set_index("Id").set_crs(self.data_crs,
                                                                            allow_override=True).to_crs(crs)
-        driveway_creator = AgentCreator(Driveway, model=self)
-        driveway = driveway_creator.from_GeoDataFrame(driveway_df)
-        self.space.add_agents(driveway)
+        self.space.add_layer(driveway_df)
 
     def _load_lakes_and_rivers_from_file(self, lake_river_file: str, crs: str) -> None:
         lake_river_df = gpd.read_file(lake_river_file).set_crs(self.data_crs, allow_override=True).to_crs(crs)
         lake_river_df.index.names = ["Id"]
-        lake_river_creator = AgentCreator(LakeAndRiver, model=self)
-        gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
-        self.space.add_agents(gmu_lake_river)
+        self.space.add_layer(lake_river_df)
 
     def _set_building_entrance(self) -> None:
         for building in (*self.space.homes, *self.space.works, *self.space.other_buildings):

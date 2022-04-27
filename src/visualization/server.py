@@ -2,8 +2,6 @@ from mesa.visualization.modules import ChartModule, TextElement
 
 from src.agent.building import Building
 from src.agent.commuter import Commuter
-from src.agent.geo_agents import Driveway, LakeAndRiver, Walkway
-
 
 class ClockElement(TextElement):
     def __init__(self):
@@ -17,13 +15,13 @@ class ClockElement(TextElement):
 def agent_draw(agent):
     portrayal = dict()
     portrayal["color"] = "White"
-    if isinstance(agent, Driveway):
-        portrayal["color"] = "#D08004"
-    elif isinstance(agent, Walkway):
-        portrayal["color"] = "Brown"
-    elif isinstance(agent, LakeAndRiver):
-        portrayal["color"] = "#04D0CD"
-    elif isinstance(agent, Building):
+    # if isinstance(agent, Driveway):
+    #     portrayal["color"] = "#D08004"
+    # elif isinstance(agent, Walkway):
+    #     portrayal["color"] = "Brown"
+    # elif isinstance(agent, LakeAndRiver):
+    #     portrayal["color"] = "#04D0CD"
+    if isinstance(agent, Building):
         portrayal["color"] = "Grey"
         # if agent.function is None:
         #     portrayal["color"] = "Grey"
