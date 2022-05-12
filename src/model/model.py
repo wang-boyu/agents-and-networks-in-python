@@ -95,6 +95,7 @@ class AgentsAndNetworks(Model):
             "friendship_home": partial(get_total_friendships_by_type, friendship_type="home"),
             "friendship_work": partial(get_total_friendships_by_type, friendship_type="work")
         })
+        self.datacollector.collect(self)
 
     def _create_commuters(self) -> None:
         for _ in range(self.num_commuters):
@@ -150,9 +151,9 @@ class AgentsAndNetworks(Model):
             building.entrance_pos = self.walkway.get_nearest_node(building.centroid)
 
     def step(self) -> None:
-        self.datacollector.collect(self)
         self.__update_clock()
         self.schedule.step()
+        self.datacollector.collect(self)
 
     def __update_clock(self) -> None:
         self.minute += 5

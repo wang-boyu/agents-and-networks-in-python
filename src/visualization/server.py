@@ -42,7 +42,7 @@ def agent_draw(agent):
             portrayal["color"] = "Red"
         else:
             portrayal["color"] = "Grey"
-        portrayal["radius"] = "3"
+        portrayal["radius"] = "5"
         portrayal["fillOpacity"] = 1
     return portrayal
 
