@@ -3,6 +3,7 @@ from mesa_geo import GeoAgent
 from shapely.geometry import Point
 import pyproj
 
+
 class Driveway(GeoAgent):
     unique_id: int
     model: Model

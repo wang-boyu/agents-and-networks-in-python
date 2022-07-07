@@ -27,8 +27,10 @@ class Building(GeoAgent):
         self.function = randrange(3)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(unique_id={self.unique_id}, name={self.name}, function={self.function}, " \
-               f"centroid={self.centroid})"
+        return (
+            f"{self.__class__.__name__}(unique_id={self.unique_id}, name={self.name}, function={self.function}, "
+            f"centroid={self.centroid})"
+        )
 
     def __eq__(self, other):
         if isinstance(other, Building):

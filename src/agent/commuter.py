@@ -21,7 +21,9 @@ class Commuter(GeoAgent):
     crs: pyproj.CRS
     origin: Building  # where he begins his trip
     destination: Building  # the destination he wants to arrive at
-    my_path: List[FloatCoordinate]  # a set containing nodes to visit in the shortest path
+    my_path: List[
+        FloatCoordinate
+    ]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
     my_home: Building
     my_work: Building
@@ -56,8 +58,10 @@ class Commuter(GeoAgent):
         self.testing = False
 
     def __repr__(self) -> str:
-        return f"Commuter(unique_id={self.unique_id}, geometry={self.geometry}, status={self.status}, " \
-               f"num_home_friends={self.num_home_friends}, num_work_friends={len(self.work_friends_id)})"
+        return (
+            f"Commuter(unique_id={self.unique_id}, geometry={self.geometry}, status={self.status}, "
+            f"num_home_friends={self.num_home_friends}, num_work_friends={len(self.work_friends_id)})"
+        )
 
     @property
     def num_home_friends(self) -> int:
@@ -71,7 +75,9 @@ class Commuter(GeoAgent):
         old_home_pos = self.my_home.centroid if self.my_home else None
         self.my_home = new_home
         self.happiness_home = 100.0
-        self.model.space.update_home_counter(old_home_pos=old_home_pos, new_home_pos=self.my_home.centroid)
+        self.model.space.update_home_counter(
+            old_home_pos=old_home_pos, new_home_pos=self.my_home.centroid
+        )
 
     def set_work(self, new_work: Building) -> None:
         self.my_work = new_work
@@ -87,20 +93,28 @@ class Commuter(GeoAgent):
     def _check_happiness(self) -> None:
         if self.status == "work":
             if len(self.work_friends_id) > self.MAX_FRIENDS:
-                self.happiness_work -= self.HAPPINESS_DECREASE * (len(self.work_friends_id) - self.MAX_FRIENDS)
+                self.happiness_work -= self.HAPPINESS_DECREASE * (
+                    len(self.work_friends_id) - self.MAX_FRIENDS
+                )
             else:
                 if len(self.work_friends_id) < self.MIN_FRIENDS:
-                    self.happiness_work -= self.HAPPINESS_DECREASE * (self.MIN_FRIENDS - len(self.work_friends_id))
+                    self.happiness_work -= self.HAPPINESS_DECREASE * (
+                        self.MIN_FRIENDS - len(self.work_friends_id)
+                    )
                 else:
                     self.happiness_work += self.HAPPINESS_INCREASE
             if self.happiness_work < 0.0:
                 self._relocate_work()
         elif self.status == "home":
             if self.num_home_friends > self.MAX_FRIENDS:
-                self.happiness_home -= self.HAPPINESS_DECREASE * (self.num_home_friends - self.MAX_FRIENDS)
+                self.happiness_home -= self.HAPPINESS_DECREASE * (
+                    self.num_home_friends - self.MAX_FRIENDS
+                )
             else:
                 if self.num_home_friends < self.MIN_FRIENDS:
-                    self.happiness_home -= self.HAPPINESS_DECREASE * (self.MIN_FRIENDS - self.num_home_friends)
+                    self.happiness_home -= self.HAPPINESS_DECREASE * (
+                        self.MIN_FRIENDS - self.num_home_friends
+                    )
                 else:
                     self.happiness_home += self.HAPPINESS_INCREASE
             if self.happiness_home < 0.0:
@@ -108,17 +122,29 @@ class Commuter(GeoAgent):
 
     def _prepare_to_move(self) -> None:
         # start going to work
-        if self.status == "home" and self.model.hour == self.start_time_h and self.model.minute == self.start_time_m:
+        if (
+            self.status == "home"
+            and self.model.hour == self.start_time_h
+            and self.model.minute == self.start_time_m
+        ):
             self.origin = self.model.space.get_building_by_id(self.my_home.unique_id)
             self.model.space.move_commuter(self, pos=self.origin.centroid)
-            self.destination = self.model.space.get_building_by_id(self.my_work.unique_id)
+            self.destination = self.model.space.get_building_by_id(
+                self.my_work.unique_id
+            )
             self._path_select()
             self.status = "transport"
         # start going home
-        elif self.status == "work" and self.model.hour == self.end_time_h and self.model.minute == self.end_time_m:
+        elif (
+            self.status == "work"
+            and self.model.hour == self.end_time_h
+            and self.model.minute == self.end_time_m
+        ):
             self.origin = self.model.space.get_building_by_id(self.my_work.unique_id)
             self.model.space.move_commuter(self, pos=self.origin.centroid)
-            self.destination = self.model.space.get_building_by_id(self.my_home.unique_id)
+            self.destination = self.model.space.get_building_by_id(
+                self.my_home.unique_id
+            )
             self._path_select()
             self.status = "transport"
 
@@ -151,16 +177,21 @@ class Commuter(GeoAgent):
 
     def _path_select(self) -> None:
         self.step_in_path = 0
-        if (cached_path := self.model.walkway.get_cached_path(source=self.origin.entrance_pos,
-                                                              target=self.destination.entrance_pos)) \
-                is not None:
+        if (
+            cached_path := self.model.walkway.get_cached_path(
+                source=self.origin.entrance_pos, target=self.destination.entrance_pos
+            )
+        ) is not None:
             self.my_path = cached_path
         else:
-            self.my_path = self.model.walkway.get_shortest_path(source=self.origin.entrance_pos,
-                                                                target=self.destination.entrance_pos)
-            self.model.walkway.cache_path(source=self.origin.entrance_pos,
-                                          target=self.destination.entrance_pos,
-                                          path=self.my_path)
+            self.my_path = self.model.walkway.get_shortest_path(
+                source=self.origin.entrance_pos, target=self.destination.entrance_pos
+            )
+            self.model.walkway.cache_path(
+                source=self.origin.entrance_pos,
+                target=self.destination.entrance_pos,
+                path=self.my_path,
+            )
         self._redistribute_path_vertices()
 
     def _redistribute_path_vertices(self) -> None:
@@ -171,18 +202,30 @@ class Commuter(GeoAgent):
             original_path = LineString([Point(p) for p in self.my_path])
             # from degree unit to meter
             path_in_meters = unit_transformer.degree2meter(original_path)
-            redistributed_path_in_meters = redistribute_vertices(path_in_meters, self.SPEED)
+            redistributed_path_in_meters = redistribute_vertices(
+                path_in_meters, self.SPEED
+            )
             # meter back to degree
-            redistributed_path_in_degree = unit_transformer.meter2degree(redistributed_path_in_meters)
+            redistributed_path_in_degree = unit_transformer.meter2degree(
+                redistributed_path_in_meters
+            )
             self.my_path = list(redistributed_path_in_degree.coords)
 
     def _make_friends_at_work(self) -> None:
         if self.status == "work":
             for work_friend_id in self.work_friends_id:
                 self.model.space.get_commuter_by_id(work_friend_id).testing = True
-            commuters_to_check = [c for c in self.model.space.get_commuters_by_pos((self.geometry.x, self.geometry.y))
-                                  if not c.testing]
-            if commuters_to_check and np.random.uniform(0.0, 100.0) < self.CHANCE_NEW_FRIEND:
+            commuters_to_check = [
+                c
+                for c in self.model.space.get_commuters_by_pos(
+                    (self.geometry.x, self.geometry.y)
+                )
+                if not c.testing
+            ]
+            if (
+                commuters_to_check
+                and np.random.uniform(0.0, 100.0) < self.CHANCE_NEW_FRIEND
+            ):
                 target_friend = random.choice(commuters_to_check)
                 target_friend.work_friends_id.append(self.unique_id)
                 self.work_friends_id.append(target_friend.unique_id)

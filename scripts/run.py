@@ -6,7 +6,12 @@ from mesa_geo.visualization.ModularVisualization import ModularServer
 from mesa_geo.visualization.modules import MapModule
 
 from src.model.model import AgentsAndNetworks
-from src.visualization.server import agent_draw, clock_element, status_chart, friendship_chart
+from src.visualization.server import (
+    agent_draw,
+    clock_element,
+    status_chart,
+    friendship_chart,
+)
 
 
 def make_parser():
@@ -26,10 +31,8 @@ if __name__ == "__main__":
         raise ValueError("Invalid campus name. Choose from ub or gmu.")
 
     campus_params = {
-        "ub": {"data_crs": "epsg:4326",
-               "commuter_speed": 150},
-        "gmu": {"data_crs": "epsg:2283",
-                "commuter_speed": 100}
+        "ub": {"data_crs": "epsg:4326", "commuter_speed": 150},
+        "gmu": {"data_crs": "epsg:2283", "commuter_speed": 100},
     }
     model_params = {
         "campus": args.campus,
@@ -42,20 +45,28 @@ if __name__ == "__main__":
         "show_walkway": True,
         "show_lakes_and_rivers": True,
         "show_driveway": True,
-        "num_commuters": mesa.visualization.Slider('Number of Commuters',
-                                                   value=50, min_value=10, max_value=150, step=10),
-        "commuter_speed": mesa.visualization.Slider('Commuter Walking Speed (m/s)',
-                                                    value=1.0, min_value=0.1, max_value=1.5, step=0.1)
+        "num_commuters": mesa.visualization.Slider(
+            "Number of Commuters", value=50, min_value=10, max_value=150, step=10
+        ),
+        "commuter_speed": mesa.visualization.Slider(
+            "Commuter Walking Speed (m/s)",
+            value=1.0,
+            min_value=0.1,
+            max_value=1.5,
+            step=0.1,
+        ),
     }
     map_params = {
-        "ub": {"view": [43.0022471679366, -78.785149],
-               "zoom": 14},
-        "gmu": {"view": [38.830417362141866, -77.3073675720387],
-                "zoom": 16}
+        "ub": {"view": [43.0022471679366, -78.785149], "zoom": 14},
+        "gmu": {"view": [38.830417362141866, -77.3073675720387], "zoom": 16},
     }
-    map_element = MapModule(agent_draw, **map_params[args.campus], map_height=600, map_width=600)
+    map_element = MapModule(
+        agent_draw, **map_params[args.campus], map_height=600, map_width=600
+    )
     server = ModularServer(
-        AgentsAndNetworks, [map_element, clock_element, status_chart, friendship_chart], "Agents and Networks",
-        model_params
+        AgentsAndNetworks,
+        [map_element, clock_element, status_chart, friendship_chart],
+        "Agents and Networks",
+        model_params,
     )
     server.launch()

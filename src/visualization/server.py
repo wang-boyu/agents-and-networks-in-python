@@ -48,10 +48,18 @@ def agent_draw(agent):
 
 
 clock_element = ClockElement()
-status_chart = ChartModule([{"Label": "status_home", "Color": "Green"},
-                            {"Label": "status_work", "Color": "Blue"},
-                            {"Label": "status_traveling", "Color": "Red"}],
-                           data_collector_name='datacollector')
-friendship_chart = ChartModule([{"Label": "friendship_home", "Color": "Green"},
-                                {"Label": "friendship_work", "Color": "Blue"}],
-                               data_collector_name='datacollector')
+status_chart = ChartModule(
+    [
+        {"Label": "status_home", "Color": "Green"},
+        {"Label": "status_work", "Color": "Blue"},
+        {"Label": "status_traveling", "Color": "Red"},
+    ],
+    data_collector_name="datacollector",
+)
+friendship_chart = ChartModule(
+    [
+        {"Label": "friendship_home", "Color": "Green"},
+        {"Label": "friendship_work", "Color": "Blue"},
+    ],
+    data_collector_name="datacollector",
+)
