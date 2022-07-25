@@ -1,7 +1,6 @@
 import argparse
 
 import mesa
-from mesa.visualization.UserParam import UserSettableParameter
 from mesa_geo.visualization.ModularVisualization import ModularServer
 from mesa_geo.visualization.modules import MapModule
 
@@ -31,12 +30,12 @@ if __name__ == "__main__":
         raise ValueError("Invalid campus name. Choose from ub or gmu.")
 
     campus_params = {
-        "ub": {"data_crs": "epsg:4326", "commuter_speed": 150},
-        "gmu": {"data_crs": "epsg:2283", "commuter_speed": 100},
+        "ub": {"data_crs": "epsg:4326", "commuter_speed": 0.5},
+        "gmu": {"data_crs": "epsg:2283", "commuter_speed": 0.4},
     }
     model_params = {
         "campus": args.campus,
-        **campus_params[args.campus],
+        "data_crs": campus_params[args.campus]["data_crs"],
         "buildings_file": f"data/raw/{args.campus}/{data_file_prefix}_bld.shp",
         "walkway_file": f"data/raw/{args.campus}/{data_file_prefix}_walkway_line.shp",
         "lakes_file": f"data/raw/{args.campus}/hydrop.shp",
@@ -50,14 +49,14 @@ if __name__ == "__main__":
         ),
         "commuter_speed": mesa.visualization.Slider(
             "Commuter Walking Speed (m/s)",
-            value=1.0,
+            value=campus_params[args.campus]["commuter_speed"],
             min_value=0.1,
             max_value=1.5,
             step=0.1,
         ),
     }
     map_params = {
-        "ub": {"view": [43.0022471679366, -78.785149], "zoom": 14},
+        "ub": {"view": [43.0022471679366, -78.785149], "zoom": 14.8},
         "gmu": {"view": [38.830417362141866, -77.3073675720387], "zoom": 16},
     }
     map_element = MapModule(
