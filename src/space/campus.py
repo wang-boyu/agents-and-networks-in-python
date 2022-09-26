@@ -9,8 +9,9 @@ from shapely.geometry import Point
 from src.agent.commuter import Commuter
 from src.agent.building import Building
 
+from src.space.fastidx import FastIdxSpace
 
-class Campus(GeoSpace):
+class Campus(FastIdxSpace):
     homes: Tuple[Building]
     works: Tuple[Building]
     other_buildings: Tuple[Building]
@@ -28,6 +29,8 @@ class Campus(GeoSpace):
         self._buildings = dict()
         self._commuters_pos_map = defaultdict(set)
         self._commuter_id_map = dict()
+        
+        self.register_class(Commuter)
 
     def get_random_home(self) -> Building:
         return random.choice(self.homes)
@@ -60,10 +63,13 @@ class Campus(GeoSpace):
     def get_commuter_by_id(self, commuter_id: int) -> Commuter:
         return self._commuter_id_map[commuter_id]
 
-    def add_commuter(self, agent: Commuter) -> None:
-        super().add_agents([agent])
+    def _track_commuter(self, agent: Commuter) -> None:
         self._commuters_pos_map[(agent.geometry.x, agent.geometry.y)].add(agent)
         self._commuter_id_map[agent.unique_id] = agent
+
+    def add_commuter(self, agent: Commuter) -> None:
+        super().add_agents([agent])
+        self._track_commuter(agent)
 
     def update_home_counter(
         self, old_home_pos: Optional[FloatCoordinate], new_home_pos: FloatCoordinate
@@ -74,12 +80,15 @@ class Campus(GeoSpace):
 
     def move_commuter(self, commuter: Commuter, pos: FloatCoordinate) -> None:
         self.__remove_commuter(commuter)
-        commuter.geometry = Point(pos)
-        self.add_commuter(commuter)
+        self.fast_move(commuter, pos)
+        self._track_commuter(commuter)        
+        #commuter.geometry = Point(pos)
+        #self.add_commuter(commuter)
 
     def __remove_commuter(self, commuter: Commuter) -> None:
-        super().remove_agent(commuter)
+        #super().remove_agent(commuter)
         del self._commuter_id_map[commuter.unique_id]
         self._commuters_pos_map[(commuter.geometry.x, commuter.geometry.y)].remove(
             commuter
         )
+
