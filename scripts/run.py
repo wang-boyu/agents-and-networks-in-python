@@ -16,7 +16,8 @@ from src.visualization.server import (
 def make_parser():
     parser = argparse.ArgumentParser("Agents and Networks in Python")
     parser.add_argument("--campus", type=str, required=True)
-    parser.add_argument("--text", action="store_true")    
+    parser.add_argument("--text", action="store_true")
+    parser.add_argument("--steps", type=int, default=10)            
     return parser
 
 
@@ -45,7 +46,7 @@ if __name__ == "__main__":
         "show_walkway": True,
         "show_lakes_and_rivers": True,
         "show_driveway": True,
-        "num_commuters": 100,
+        "num_commuters": 1000,
         "commuter_speed": campus_params[args.campus]["commuter_speed"]
     }
     map_params = {
@@ -67,7 +68,7 @@ if __name__ == "__main__":
     else:    
       model = AgentsAndNetworks(**model_params)
  
-      for i in range(10):
+      for i in range(args.steps):
         model.step()
         print(i, model.day, model.hour, model.minute)      
 
