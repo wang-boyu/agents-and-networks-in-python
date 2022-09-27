@@ -211,6 +211,7 @@ class AgentsAndNetworks(Model):
 
     def step(self) -> None:
         self.__update_clock()
+        if self.space.is_index_dirty: self.space._update_index()
         self.schedule.step()
         self.datacollector.collect(self)
 

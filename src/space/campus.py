@@ -21,7 +21,7 @@ class Campus(FastIdxSpace):
     #_commuter_id_map: Dict[int, Commuter]
 
     def __init__(self, crs: str) -> None:
-        super().__init__(crs=crs)
+        super().__init__(crs=crs, autosync=False)
         self.homes = tuple()
         self.works = tuple()
         self.other_buildings = tuple()
@@ -58,7 +58,6 @@ class Campus(FastIdxSpace):
         self.homes = self.homes + tuple(homes)
 
     def get_commuters_by_pos(self, float_pos: FloatCoordinate) -> Set[Commuter]:
-        if self.is_index_dirty: self._create_gdf()
         return set(self.agents_at(float_pos))
         #return self._commuters_pos_map[float_pos]
 

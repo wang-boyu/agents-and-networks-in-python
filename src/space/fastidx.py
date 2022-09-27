@@ -9,15 +9,22 @@ from sklearn.neighbors import KDTree
 
   
 class FastIdxSpace(GeoSpace):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, autosync=True, **kwargs):
+      self._autosync = autosync
       super().__init__(*args, **kwargs)
       
       self._fastagents = {}
       self._clear_gdf()
-      self._gdf_is_dirty = False  
-      
       self._filter_classes = []    
       
+    @property
+    def agents(self):
+      return [*super().agents, *self._fastagents.values()]
+
+    @property
+    def is_empty(self):
+      return len(self._fastagents) == 0
+
     def add_agents(self, agents):
       toProcess = []
       for agent in agents:
@@ -62,17 +69,13 @@ class FastIdxSpace(GeoSpace):
       self._filter_classes.append(class_type)
 
     def _clear_gdf(self):
-      df = pd.DataFrame(
-        {'agentid': [],
-        'geometry': []
-        })
+      """ 
+        Empty the geodataframe
+      """
+      self._agdf = gpd.GeoDataFrame({'agentid': [], 'geometry': []})  
+      self._gdf_is_dirty = False
 
-      self._agdf = gpd.GeoDataFrame(df)  
-
-    def _create_gdf(self, use_ntrees=False):
-      #self._clear_gdf()
-
-      columns = ["agentid","geometry"]
+    def _update_index(self):
       agent_idxs = []
       geometries = []
       for agent in self._fastagents.values():
@@ -87,21 +90,24 @@ class FastIdxSpace(GeoSpace):
       self._agdf = gpd.GeoDataFrame(d, crs=self._crs)              
 
       # Ensure that index in right gdf is formed of sequential numbers
-      self._right = self._agdf.copy().reset_index(drop=True)      
-      _right_r = np.array(self._right["geometry"].apply(
-        lambda geom: (geom.x * np.pi / 180, geom.y * np.pi / 180)).to_list()
+      self._right = self._agdf.copy().reset_index(drop=True)   
+      # Convert to RADIANS for use in the index   
+      _right_r = np.array(
+          self._right["geometry"].apply(
+            lambda geom: (geom.x * np.pi / 180, geom.y * np.pi / 180)
+            ).to_list()
         )      
       # Create tree from the candidate points
 
       self._tree = KDTree(_right_r, leaf_size=2)    
 
       self._gdf_is_dirty = False
-    
-          
 
-    def get_nearest(self, src_points, radius=2.0):
-      """Find nearest neighbors for all source points from a set of candidate points"""
-
+    def _get_nearest(self, src_points, radius=1.0):
+      """
+        Find nearest neighbors for all source points from a set of candidate points
+        Beware that it does not automatically recompute the index
+      """
       # Find closest points and distances
       indices = self._tree.query_radius(src_points, radius)
 
@@ -112,12 +118,25 @@ class FastIdxSpace(GeoSpace):
       return indices
 
     def agents_at(self, pos, max_num=5, radius=2.0):
+      """
+        Return a list of agents at given pos.
+        This function recomputed the index if it is needed and autosync == True
+      """      
+      # If the space is empty there is no need to go though the index
+      if self.is_empty: return []
+      # If the index needs to be rebuild do it now
+      if self._autosync and self.is_index_dirty: self._update_index()
+      # Get the geodataframe with the neighbours 
       res = self._agents_at(pos, max_num, radius)
+      # Transform it to angents and return
       agents = [self.fast_get(unique_id) for unique_id in res["agentid"]]
       return agents
 
     def _agents_at(self, pos, max_num=5, radius=2.0):
-      """Return a list of agents at given pos."""
+      """
+        Return a geodataframe with the list of agentid and geometry at given pos.
+        Beware that it does not automatically recompute the index
+      """
      
       # Parse coordinates from points and insert them into a numpy array as RADIANS
       left_r = np.array(
@@ -127,17 +146,13 @@ class FastIdxSpace(GeoSpace):
       # Find the nearest points
       # -----------------------
       # closest ==> index in right_gdf that corresponds to the closest point
-      
-      closest = self.get_nearest(
+      closest = self._get_nearest(
         src_points=left_r, radius=radius
         )
       
       # Return points from right GeoDataFrame that are closest to points in left GeoDataFrame
       closest_points = self._right.loc[closest[0]]
-
-      # Ensure that the index corresponds the one in left_gdf
-      #closest_points = closest_points.reset_index(drop=True)
-      
+ 
       return closest_points
       
 
