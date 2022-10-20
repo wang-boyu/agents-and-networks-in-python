@@ -3,10 +3,8 @@ from functools import partial
 
 import pandas as pd
 import geopandas as gpd
-from mesa import Model
-from mesa.time import RandomActivation
-from mesa.datacollection import DataCollector
-from mesa_geo.geoagent import AgentCreator
+import mesa
+import mesa_geo as mg
 from shapely.geometry import Point
 
 from src.agent.commuter import Commuter
@@ -43,9 +41,9 @@ def get_total_friendships_by_type(model, friendship_type: str) -> int:
     return sum(num_friendships)
 
 
-class AgentsAndNetworks(Model):
+class AgentsAndNetworks(mesa.Model):
     running: bool
-    schedule: RandomActivation
+    schedule: mesa.time.RandomActivation
     show_walkway: bool
     show_lakes_and_rivers: bool
     current_id: int
@@ -57,7 +55,7 @@ class AgentsAndNetworks(Model):
     day: int
     hour: int
     minute: int
-    datacollector: DataCollector
+    datacollector: mesa.DataCollector
 
     def __init__(
         self,
@@ -81,7 +79,7 @@ class AgentsAndNetworks(Model):
         show_driveway=False,
     ) -> None:
         super().__init__()
-        self.schedule = RandomActivation(self)
+        self.schedule = mesa.time.RandomActivation(self)
         self.show_walkway = show_walkway
         self.show_lakes_and_rivers = show_lakes_and_rivers
         self.data_crs = data_crs
@@ -110,7 +108,7 @@ class AgentsAndNetworks(Model):
             self._load_lakes_and_rivers_from_file(lakes_file, crs=model_crs)
             self._load_lakes_and_rivers_from_file(rivers_file, crs=model_crs)
 
-        self.datacollector = DataCollector(
+        self.datacollector = mesa.DataCollector(
             model_reporters={
                 "time": get_time,
                 "status_home": partial(get_num_commuters_by_status, status="home"),
@@ -161,7 +159,7 @@ class AgentsAndNetworks(Model):
         buildings_df["centroid"] = [
             (x, y) for x, y in zip(buildings_df.centroid.x, buildings_df.centroid.y)
         ]
-        building_creator = AgentCreator(Building, model=self)
+        building_creator = mg.AgentCreator(Building, model=self)
         buildings = building_creator.from_GeoDataFrame(buildings_df)
         self.space.add_buildings(buildings)
 
@@ -175,7 +173,7 @@ class AgentsAndNetworks(Model):
         )
         self.walkway = CampusWalkway(campus=campus, lines=walkway_df["geometry"])
         if self.show_walkway:
-            walkway_creator = AgentCreator(Walkway, model=self)
+            walkway_creator = mg.AgentCreator(Walkway, model=self)
             walkway = walkway_creator.from_GeoDataFrame(walkway_df)
             self.space.add_agents(walkway)
 
@@ -186,7 +184,7 @@ class AgentsAndNetworks(Model):
             .set_crs(self.data_crs, allow_override=True)
             .to_crs(crs)
         )
-        driveway_creator = AgentCreator(Driveway, model=self)
+        driveway_creator = mg.AgentCreator(Driveway, model=self)
         driveway = driveway_creator.from_GeoDataFrame(driveway_df)
         self.space.add_agents(driveway)
 
@@ -197,7 +195,7 @@ class AgentsAndNetworks(Model):
             .to_crs(crs)
         )
         lake_river_df.index.names = ["Id"]
-        lake_river_creator = AgentCreator(LakeAndRiver, model=self)
+        lake_river_creator = mg.AgentCreator(LakeAndRiver, model=self)
         gmu_lake_river = lake_river_creator.from_GeoDataFrame(lake_river_df)
         self.space.add_agents(gmu_lake_river)
 

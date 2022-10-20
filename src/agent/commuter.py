@@ -5,24 +5,23 @@ from typing import List
 
 import pyproj
 import numpy as np
-from mesa import Model
-from mesa.space import FloatCoordinate
-from mesa_geo.geoagent import GeoAgent
+import mesa
+import mesa_geo as mg
 from shapely.geometry import Point, LineString
 
 from src.agent.building import Building
 from src.space.utils import redistribute_vertices, UnitTransformer
 
 
-class Commuter(GeoAgent):
+class Commuter(mg.GeoAgent):
     unique_id: int  # commuter_id, used to link commuters and nodes
-    model: Model
+    model: mesa.Model
     geometry: Point
     crs: pyproj.CRS
     origin: Building  # where he begins his trip
     destination: Building  # the destination he wants to arrive at
     my_path: List[
-        FloatCoordinate
+        mesa.space.FloatCoordinate
     ]  # a set containing nodes to visit in the shortest path
     step_in_path: int  # the number of step taking in the walk
     my_home: Building

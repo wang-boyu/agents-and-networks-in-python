@@ -2,21 +2,21 @@ import random
 from collections import defaultdict
 from typing import Dict, Tuple, Optional, DefaultDict, Set
 
-from mesa.space import FloatCoordinate
-from mesa_geo.geospace import GeoSpace
+import mesa
+import mesa_geo as mg
 from shapely.geometry import Point
 
 from src.agent.commuter import Commuter
 from src.agent.building import Building
 
 
-class Campus(GeoSpace):
+class Campus(mg.GeoSpace):
     homes: Tuple[Building]
     works: Tuple[Building]
     other_buildings: Tuple[Building]
-    home_counter: DefaultDict[FloatCoordinate, int]
+    home_counter: DefaultDict[mesa.space.FloatCoordinate, int]
     _buildings: Dict[int, Building]
-    _commuters_pos_map: DefaultDict[FloatCoordinate, Set[Commuter]]
+    _commuters_pos_map: DefaultDict[mesa.space.FloatCoordinate, Set[Commuter]]
     _commuter_id_map: Dict[int, Commuter]
 
     def __init__(self, crs: str) -> None:
@@ -54,7 +54,9 @@ class Campus(GeoSpace):
         self.works = self.works + tuple(works)
         self.homes = self.homes + tuple(homes)
 
-    def get_commuters_by_pos(self, float_pos: FloatCoordinate) -> Set[Commuter]:
+    def get_commuters_by_pos(
+        self, float_pos: mesa.space.FloatCoordinate
+    ) -> Set[Commuter]:
         return self._commuters_pos_map[float_pos]
 
     def get_commuter_by_id(self, commuter_id: int) -> Commuter:
@@ -66,13 +68,17 @@ class Campus(GeoSpace):
         self._commuter_id_map[agent.unique_id] = agent
 
     def update_home_counter(
-        self, old_home_pos: Optional[FloatCoordinate], new_home_pos: FloatCoordinate
+        self,
+        old_home_pos: Optional[mesa.space.FloatCoordinate],
+        new_home_pos: mesa.space.FloatCoordinate,
     ) -> None:
         if old_home_pos is not None:
             self.home_counter[old_home_pos] -= 1
         self.home_counter[new_home_pos] += 1
 
-    def move_commuter(self, commuter: Commuter, pos: FloatCoordinate) -> None:
+    def move_commuter(
+        self, commuter: Commuter, pos: mesa.space.FloatCoordinate
+    ) -> None:
         self.__remove_commuter(commuter)
         commuter.geometry = Point(pos)
         self.add_commuter(commuter)

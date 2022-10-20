@@ -1,8 +1,7 @@
 import argparse
 
 import mesa
-from mesa_geo.visualization.ModularVisualization import ModularServer
-from mesa_geo.visualization.modules import MapModule
+import mesa_geo as mg
 
 from src.model.model import AgentsAndNetworks
 from src.visualization.server import (
@@ -55,14 +54,8 @@ if __name__ == "__main__":
             step=0.1,
         ),
     }
-    map_params = {
-        "ub": {"view": [43.0022471679366, -78.785149], "zoom": 14.8},
-        "gmu": {"view": [38.830417362141866, -77.3073675720387], "zoom": 16},
-    }
-    map_element = MapModule(
-        agent_draw, **map_params[args.campus], map_height=600, map_width=600
-    )
-    server = ModularServer(
+    map_element = mg.visualization.MapModule(agent_draw, map_height=600, map_width=600)
+    server = mesa.visualization.ModularServer(
         AgentsAndNetworks,
         [map_element, clock_element, status_chart, friendship_chart],
         "Agents and Networks",

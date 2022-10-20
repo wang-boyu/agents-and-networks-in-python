@@ -4,21 +4,20 @@ import uuid
 from random import randrange
 
 import pyproj
-from mesa.model import Model
-from mesa.space import FloatCoordinate
-from mesa_geo.geoagent import GeoAgent
+import mesa
+import mesa_geo as mg
 from shapely.geometry import Polygon
 
 
-class Building(GeoAgent):
+class Building(mg.GeoAgent):
     unique_id: int  # an ID that represents the building
-    model: Model
+    model: mesa.Model
     geometry: Polygon
     crs: pyproj.CRS
-    centroid: FloatCoordinate
+    centroid: mesa.space.FloatCoordinate
     name: str
     function: float  # 1.0 for work, 2.0 for home, 0.0 for neither
-    entrance_pos: FloatCoordinate  # nearest vertex on road
+    entrance_pos: mesa.space.FloatCoordinate  # nearest vertex on road
 
     def __init__(self, unique_id, model, geometry, crs) -> None:
         super().__init__(unique_id=unique_id, model=model, geometry=geometry, crs=crs)

@@ -1,12 +1,12 @@
-from mesa import Model
-from mesa_geo import GeoAgent
+import mesa
+import mesa_geo as mg
 from shapely.geometry import Point
 import pyproj
 
 
-class Driveway(GeoAgent):
+class Driveway(mg.GeoAgent):
     unique_id: int
-    model: Model
+    model: mesa.Model
     geometry: Point
     crs: pyproj.CRS
 
@@ -14,9 +14,9 @@ class Driveway(GeoAgent):
         super().__init__(unique_id, model, geometry, crs)
 
 
-class LakeAndRiver(GeoAgent):
+class LakeAndRiver(mg.GeoAgent):
     unique_id: int
-    model: Model
+    model: mesa.Model
     geometry: Point
     crs: pyproj.CRS
 
@@ -24,9 +24,9 @@ class LakeAndRiver(GeoAgent):
         super().__init__(unique_id, model, geometry, crs)
 
 
-class Walkway(GeoAgent):
+class Walkway(mg.GeoAgent):
     unique_id: int
-    model: Model
+    model: mesa.Model
     geometry: Point
     crs: pyproj.CRS
 

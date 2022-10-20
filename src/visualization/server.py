@@ -1,11 +1,11 @@
-from mesa.visualization.modules import ChartModule, TextElement
+import mesa
 
 from src.agent.building import Building
 from src.agent.commuter import Commuter
 from src.agent.geo_agents import Driveway, LakeAndRiver, Walkway
 
 
-class ClockElement(TextElement):
+class ClockElement(mesa.visualization.TextElement):
     def __init__(self):
         super().__init__()
         pass
@@ -48,7 +48,7 @@ def agent_draw(agent):
 
 
 clock_element = ClockElement()
-status_chart = ChartModule(
+status_chart = mesa.visualization.ChartModule(
     [
         {"Label": "status_home", "Color": "Green"},
         {"Label": "status_work", "Color": "Blue"},
@@ -56,7 +56,7 @@ status_chart = ChartModule(
     ],
     data_collector_name="datacollector",
 )
-friendship_chart = ChartModule(
+friendship_chart = mesa.visualization.ChartModule(
     [
         {"Label": "friendship_home", "Color": "Green"},
         {"Label": "friendship_work", "Color": "Blue"},

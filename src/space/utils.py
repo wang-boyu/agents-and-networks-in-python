@@ -3,7 +3,7 @@ from typing import Tuple, List
 import geopandas as gpd
 import numpy as np
 import pyproj
-from mesa.space import FloatCoordinate, Coordinate
+import mesa
 from shapely.geometry import LineString, MultiLineString
 from shapely.ops import transform
 
@@ -37,7 +37,9 @@ def get_affine_transform(
     return A.T[0, 0], A.T[0, 1], A.T[1, 0], A.T[1, 1], A.T[0, 2], A.T[1, 2]
 
 
-def get_rounded_coordinate(float_coordinate: FloatCoordinate) -> Coordinate:
+def get_rounded_coordinate(
+    float_coordinate: mesa.space.FloatCoordinate,
+) -> mesa.space.Coordinate:
     return round(float_coordinate[0]), round(float_coordinate[1])
 
 
