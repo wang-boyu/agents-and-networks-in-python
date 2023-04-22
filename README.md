@@ -1,5 +1,10 @@
+### !!Repository Archived!!
+
+- This model has been merged into the [mesa-examples](https://github.com/projectmesa/mesa-examples) repository under its `gis/` folder: [new location](https://github.com/projectmesa/mesa-examples/tree/main/gis/agents_and_networks).
+- No further updates will be made here.
+
 Agents and Networks Model in Python
-==============================
+===================================
 
 [![](https://img.youtube.com/vi/zIRMNPTBESc/0.jpg)](https://www.youtube.com/watch?v=zIRMNPTBESc)
 
